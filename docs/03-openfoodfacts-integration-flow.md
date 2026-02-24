@@ -6,7 +6,7 @@ sequenceDiagram
   participant Client as Mobile or Admin
   participant API as ProductsService
   participant PG as PostgreSQL
-  participant OFF as OpenFoodFacts
+  participant OFS as OpenFoodFacts API
 
   Client->>API: GET /products/{barcode}
   API->>PG: SELECT product by barcode
@@ -16,16 +16,16 @@ sequenceDiagram
     API-->>Client: Return local product
   else Not found locally
     PG-->>API: Empty
-    API->>OFF: GET /api/v2/product/{barcode}.json
+    API->>OFS: GET /api/v2/product/{barcode}.json
 
-    alt OFF has valid product
-      OFF-->>API: Raw OFF payload
+    alt OpenFoodFacts has valid product
+      OFS-->>API: Raw payload
       API->>API: Normalize fields (name, brand, category, image)
       API->>PG: UPSERT product with source OFF
       PG-->>API: Stored product
       API-->>Client: Return normalized product
-    else OFF missing or invalid
-      OFF-->>API: Not found or invalid response
+    else OpenFoodFacts missing or invalid
+      OFS-->>API: Not found or invalid response
       API-->>Client: 404 Product not found
     end
   end
