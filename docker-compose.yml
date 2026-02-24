@@ -33,6 +33,21 @@ services:
     ports:
       - "3001:3001"
 
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: listacerta-admin
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://api:3001
+      ADMIN_TOKEN: change-me-admin-token
+    ports:
+      - "3002:3002"
+
   adminer:
     image: adminer:latest
     container_name: listacerta-adminer

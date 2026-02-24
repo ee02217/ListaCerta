@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const productIdSchema = z.string().uuid();
+export const priceIdSchema = z.string().uuid();
 
 export const createPriceSchema = z.object({
   productId: productIdSchema,
@@ -13,4 +14,15 @@ export const createPriceSchema = z.object({
   status: z.enum(['active', 'flagged']).optional().default('active'),
 });
 
+export const listModerationQuerySchema = z.object({
+  status: z.enum(['active', 'flagged']).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional().default(100),
+});
+
+export const moderatePriceSchema = z.object({
+  status: z.enum(['active', 'flagged']),
+});
+
 export type CreatePriceBody = z.infer<typeof createPriceSchema>;
+export type ListModerationQuery = z.infer<typeof listModerationQuerySchema>;
+export type ModeratePriceBody = z.infer<typeof moderatePriceSchema>;

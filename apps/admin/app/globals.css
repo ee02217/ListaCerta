@@ -1,21 +1,25 @@
-* {
-  box-sizing: border-box;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
 }
 
-html,
 body {
-  margin: 0;
-  padding: 0;
-  font-family: Inter, Arial, sans-serif;
-  background: #f5f7fb;
-  color: #111;
+  @apply bg-slate-50 text-slate-900 antialiased;
 }
 
-.container {
-  max-width: 900px;
-  margin: 48px auto;
-  background: white;
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+input,
+select,
+textarea {
+  @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100;
+}
+
+button {
+  @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition;
+}
+
+.card {
+  @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
 }

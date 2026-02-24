@@ -1,8 +1,14 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { createPriceSchema, productIdSchema } from './prices.schemas';
+import {
+  createPriceSchema,
+  listModerationQuerySchema,
+  moderatePriceSchema,
+  priceIdSchema,
+  productIdSchema,
+} from './prices.schemas';
 import { PricesService } from './prices.service';
 
 class CreatePriceBodyDto {
@@ -14,6 +20,10 @@ class CreatePriceBodyDto {
   submittedBy?: string | null;
   photoUrl?: string | null;
   status?: 'active' | 'flagged';
+}
+
+class ModeratePriceBodyDto {
+  status!: 'active' | 'flagged';
 }
 
 @ApiTags('prices')
@@ -28,6 +38,28 @@ export class PricesController {
     @Body(new ZodValidationPipe(createPriceSchema)) body: import('./prices.schemas').CreatePriceBody,
   ) {
     return this.pricesService.createPrice(body);
+  }
+
+  @Get('moderation')
+  @ApiOperation({ summary: 'List prices for moderation' })
+  @ApiQuery({ name: 'status', required: false, enum: ['active', 'flagged'] })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async listModerationQueue(
+    @Query(new ZodValidationPipe(listModerationQuerySchema))
+    query: import('./prices.schemas').ListModerationQuery,
+  ) {
+    return this.pricesService.listModerationQueue(query);
+  }
+
+  @Patch(':id/moderation')
+  @ApiOperation({ summary: 'Moderate price status (approve/reject/flag)' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiBody({ type: ModeratePriceBodyDto })
+  async moderatePrice(
+    @Param('id', new ZodValidationPipe(priceIdSchema)) id: string,
+    @Body(new ZodValidationPipe(moderatePriceSchema)) body: import('./prices.schemas').ModeratePriceBody,
+  ) {
+    return this.pricesService.moderatePrice(id, body);
   }
 
   @Get('best/:productId')

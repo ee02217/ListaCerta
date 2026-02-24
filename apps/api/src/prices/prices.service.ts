@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePriceBody } from './prices.schemas';
+import { CreatePriceBody, ListModerationQuery, ModeratePriceBody } from './prices.schemas';
 
 @Injectable()
 export class PricesService {
@@ -66,5 +66,34 @@ export class PricesService {
     }
 
     return bestPrice;
+  }
+
+  async listModerationQueue(query: ListModerationQuery) {
+    return this.prisma.price.findMany({
+      where: query.status ? { status: query.status } : undefined,
+      include: {
+        product: true,
+        store: true,
+        device: true,
+      },
+      orderBy: [{ capturedAt: 'desc' }],
+      take: query.limit,
+    });
+  }
+
+  async moderatePrice(id: string, body: ModeratePriceBody) {
+    try {
+      return await this.prisma.price.update({
+        where: { id },
+        data: { status: body.status },
+        include: {
+          product: true,
+          store: true,
+          device: true,
+        },
+      });
+    } catch {
+      throw new NotFoundException(`Price not found: ${id}`);
+    }
   }
 }

@@ -1,8 +1,14 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { barcodeSchema, createProductSchema } from './products.schemas';
+import {
+  barcodeSchema,
+  createProductSchema,
+  listProductsQuerySchema,
+  productIdSchema,
+  updateProductSchema,
+} from './products.schemas';
 import { ProductsService } from './products.service';
 
 class CreateProductBodyDto {
@@ -14,10 +20,29 @@ class CreateProductBodyDto {
   source?: 'OFF' | 'manual';
 }
 
+class UpdateProductBodyDto {
+  barcode?: string;
+  name?: string;
+  brand?: string | null;
+  category?: string | null;
+  imageUrl?: string | null;
+  source?: 'OFF' | 'manual';
+}
+
 @ApiTags('products')
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'List products (search by barcode or name)' })
+  @ApiQuery({ name: 'q', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async listProducts(
+    @Query(new ZodValidationPipe(listProductsQuerySchema)) query: import('./products.schemas').ListProductsQuery,
+  ) {
+    return this.productsService.listProducts(query);
+  }
 
   @Get(':barcode')
   @ApiOperation({ summary: 'Get product by barcode (cache-aside with OpenFoodFacts)' })
@@ -35,5 +60,16 @@ export class ProductsController {
     @Body(new ZodValidationPipe(createProductSchema)) body: import('./products.schemas').CreateProductBody,
   ) {
     return this.productsService.createManualProduct(body);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update product fields' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiBody({ type: UpdateProductBodyDto })
+  async updateProduct(
+    @Param('id', new ZodValidationPipe(productIdSchema)) id: string,
+    @Body(new ZodValidationPipe(updateProductSchema)) body: import('./products.schemas').UpdateProductBody,
+  ) {
+    return this.productsService.updateProduct(id, body);
   }
 }
