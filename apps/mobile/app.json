@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "ListaCerta",
+    "slug": "listacerta-mobile",
+    "scheme": "listacerta",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.listacerta.mobile"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+node_modules
+npm-debug.log*
+.env
+.env.*
+!.env.example
+
+# Build outputs
+**/dist
+**/.next
+**/.expo
+**/coverage
+**/*.tsbuildinfo
+
+# Prisma
+apps/api/prisma/dev.db
+
+# OS
+.DS_Store

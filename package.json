@@ -1,0 +1,21 @@
+{
+  "name": "listacerta",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ListaCerta monorepo (mobile + api + admin + shared packages)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:mobile": "npm run dev -w @listacerta/mobile",
+    "dev:api": "npm run dev -w @listacerta/api",
+    "dev:admin": "npm run dev -w @listacerta/admin",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
