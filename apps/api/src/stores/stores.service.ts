@@ -18,18 +18,34 @@ export class StoresService {
   }
 
   async createStore(body: CreateStoreBody) {
+    const normalizedName = body.name.trim();
+    const normalizedLocation = body.location?.trim() || null;
+
+    const existing = await this.prisma.store.findFirst({
+      where: {
+        name: {
+          equals: normalizedName,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException(`Store with name ${normalizedName} already exists`);
+    }
+
     try {
       const store = await this.prisma.store.create({
         data: {
-          name: body.name,
-          location: body.location ?? null,
+          name: normalizedName,
+          location: normalizedLocation,
         },
       });
 
       return StoreSchema.parse(store);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException(`Store with name ${body.name} already exists`);
+        throw new ConflictException(`Store with name ${normalizedName} already exists`);
       }
 
       throw error;

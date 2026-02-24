@@ -100,6 +100,9 @@ export default function AddPriceScreen() {
   const [priceInput, setPriceInput] = useState('');
   const [currency, setCurrency] = useState('EUR');
   const [saving, setSaving] = useState(false);
+  const [newStoreName, setNewStoreName] = useState('');
+  const [newStoreLocation, setNewStoreLocation] = useState('');
+  const [isCreatingStore, setIsCreatingStore] = useState(false);
 
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
@@ -113,16 +116,25 @@ export default function AddPriceScreen() {
     [stores, selectedStoreId],
   );
 
+  const refreshStores = async (preferredStoreId?: string) => {
+    const apiStores = await storeApi.listStores();
+    setStores(apiStores);
+
+    if (apiStores.length > 0) {
+      const defaultStoreId =
+        preferredStoreId && apiStores.some((item) => item.id === preferredStoreId)
+          ? preferredStoreId
+          : apiStores[0].id;
+
+      setSelectedStoreId(defaultStoreId); // default store selected
+      await storeRepository.upsertManyFromApi(apiStores);
+    }
+  };
+
   useEffect(() => {
     const loadStores = async () => {
       try {
-        const apiStores = await storeApi.listStores();
-        setStores(apiStores);
-
-        if (apiStores.length > 0) {
-          setSelectedStoreId(apiStores[0].id); // default store selected
-          await storeRepository.upsertManyFromApi(apiStores);
-        }
+        await refreshStores();
       } catch (error) {
         Alert.alert('Stores unavailable', error instanceof Error ? error.message : 'Could not load stores.');
       }
@@ -180,6 +192,35 @@ export default function AddPriceScreen() {
       Alert.alert('OCR failed', error instanceof Error ? error.message : 'Could not extract price.');
     } finally {
       setOcrBusy(false);
+    }
+  };
+
+  const createStoreInline = async () => {
+    const normalizedName = newStoreName.trim();
+
+    if (!normalizedName) {
+      Alert.alert('Store name required', 'Please enter a store name.');
+      return;
+    }
+
+    setIsCreatingStore(true);
+
+    try {
+      const created = await storeApi.createStore({
+        name: normalizedName,
+        location: newStoreLocation.trim() || null,
+      });
+
+      await storeRepository.upsertFromApiStore(created);
+      await refreshStores(created.id);
+
+      setNewStoreName('');
+      setNewStoreLocation('');
+      Alert.alert('Store created', `${created.name} is ready to use.`);
+    } catch (error) {
+      Alert.alert('Could not create store', error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      setIsCreatingStore(false);
     }
   };
 
@@ -303,6 +344,34 @@ export default function AddPriceScreen() {
                 </Pressable>
               ))
             )}
+
+            <View style={styles.inlineCreateSection}>
+              <Text style={styles.inlineCreateTitle}>Add new store</Text>
+              <TextInput
+                value={newStoreName}
+                onChangeText={setNewStoreName}
+                style={styles.input}
+                placeholder="Store name"
+                placeholderTextColor="#888"
+              />
+              <TextInput
+                value={newStoreLocation}
+                onChangeText={setNewStoreLocation}
+                style={styles.input}
+                placeholder="Location (optional)"
+                placeholderTextColor="#888"
+              />
+
+              <Pressable
+                style={[styles.secondaryActionButton, isCreatingStore && styles.buttonDisabled]}
+                onPress={createStoreInline}
+                disabled={isCreatingStore}
+              >
+                <Text style={styles.secondaryActionButtonLabel}>
+                  {isCreatingStore ? 'Creating…' : 'Create store'}
+                </Text>
+              </Pressable>
+            </View>
 
             <Pressable style={styles.ghostButton} onPress={() => setIsStoreModalOpen(false)}>
               <Text style={styles.ghostButtonLabel}>Close</Text>
@@ -434,6 +503,31 @@ const styles = StyleSheet.create({
   },
   emptyHint: {
     color: '#6b7280',
+  },
+  inlineCreateSection: {
+    marginTop: 6,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    gap: 8,
+  },
+  inlineCreateTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  secondaryActionButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#0ea5e9',
+    backgroundColor: '#f0f9ff',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  secondaryActionButtonLabel: {
+    color: '#075985',
+    fontWeight: '700',
   },
   storeOption: {
     borderRadius: 10,

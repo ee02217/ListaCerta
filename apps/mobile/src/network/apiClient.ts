@@ -4,6 +4,7 @@ import {
   PriceSubmissionResultSchema,
   ProductSchema,
   ProductsArraySchema,
+  StoreSchema,
   StoresArraySchema,
   type Price,
   type PriceAggregation,
@@ -117,6 +118,18 @@ export const storeApi = {
   async listStores(): Promise<Store[]> {
     const payload = await apiClient.request<unknown>('/stores');
     return StoresArraySchema.parse(payload);
+  },
+
+  async createStore(input: { name: string; location?: string | null }): Promise<Store> {
+    const payload = await apiClient.request<unknown>('/stores', {
+      method: 'POST',
+      body: {
+        name: input.name,
+        location: input.location ?? null,
+      },
+    });
+
+    return StoreSchema.parse(payload);
   },
 };
 
