@@ -7,16 +7,62 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+enum ProductSource {
+  OFF
+  manual
 }
 
-model ShoppingList {
-  id        String   @id @default(uuid())
+enum PriceStatus {
+  active
+  flagged
+}
+
+model Product {
+  id        String        @id @default(uuid())
+  barcode   String        @unique
   name      String
+  brand     String?
+  category  String?
+  imageUrl  String?
+  source    ProductSource @default(manual)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  prices    Price[]
+
+  @@index([barcode])
+}
+
+model Store {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  location String?
+  prices   Price[]
+
+  @@index([name])
+}
+
+model Device {
+  id        String   @id
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  prices    Price[]
+}
+
+model Price {
+  id          String     @id @default(uuid())
+  productId   String
+  storeId     String
+  priceCents  Int
+  currency    String
+  capturedAt  DateTime   @default(now())
+  submittedBy String?
+  photoUrl    String?
+  status      PriceStatus @default(active)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  device  Device? @relation(fields: [submittedBy], references: [id], onDelete: SetNull)
+
+  @@index([productId, status, priceCents])
+  @@index([storeId])
+  @@index([capturedAt])
 }

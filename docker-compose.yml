@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16
@@ -18,6 +16,22 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: listacerta-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://listacerta:listacerta@postgres:5432/listacerta?schema=public
+      PORT: 3001
+      OFF_BASE_URL: https://world.openfoodfacts.org
+    ports:
+      - "3001:3001"
 
   adminer:
     image: adminer:latest

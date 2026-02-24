@@ -1,9 +1,18 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
+
+import { HealthController } from './health.controller';
+import { PricesController } from './prices/prices.controller';
+import { PricesService } from './prices/prices.service';
+import { PrismaModule } from './prisma/prisma.module';
+import { OpenFoodFactsService } from './products/open-food-facts.service';
+import { ProductsController } from './products/products.controller';
+import { ProductsService } from './products/products.service';
+import { StoresController } from './stores/stores.controller';
+import { StoresService } from './stores/stores.service';
 
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [],
+  imports: [PrismaModule],
+  controllers: [HealthController, ProductsController, PricesController, StoresController],
+  providers: [ProductsService, OpenFoodFactsService, PricesService, StoresService],
 })
 export class AppModule {}
