@@ -39,6 +39,7 @@ Admin UI: `http://localhost:3002`
 - `ADMIN_USERNAME` (default: `admin`)
 - `ADMIN_PASSWORD` (default: `change-me-password`)
 - `ADMIN_SESSION_SECRET` (used to sign cookie session)
+- `ADMIN_COOKIE_SECURE` (`false` for local HTTP; set `true` behind HTTPS)
 
 ## Pages
 

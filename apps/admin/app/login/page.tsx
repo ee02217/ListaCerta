@@ -1,7 +1,12 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import { ADMIN_COOKIE_NAME, getExpectedSessionToken, isValidCredentials } from '../../lib/auth';
+import {
+  ADMIN_COOKIE_NAME,
+  createSessionToken,
+  isValidCredentials,
+  shouldUseSecureCookies,
+} from '../../lib/auth';
 
 type LoginPageProps = {
   searchParams?: {
@@ -20,12 +25,14 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
       redirect('/login?error=invalid');
     }
 
+    const { token } = createSessionToken(username);
+
     cookies().set({
       name: ADMIN_COOKIE_NAME,
-      value: getExpectedSessionToken(),
+      value: token,
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookies(),
       path: '/',
       maxAge: 60 * 60 * 12,
     });

@@ -54,6 +54,7 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-password}
       ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-change-me-session-secret}
+      ADMIN_COOKIE_SECURE: ${ADMIN_COOKIE_SECURE:-false}
     ports:
       - "${ADMIN_PORT:-3002}:3002"
 
@@ -72,6 +73,7 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-password}
       ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-change-me-session-secret}
+      ADMIN_COOKIE_SECURE: ${ADMIN_COOKIE_SECURE:-false}
     volumes:
       - ./:/workspace
       - admin_node_modules:/workspace/node_modules

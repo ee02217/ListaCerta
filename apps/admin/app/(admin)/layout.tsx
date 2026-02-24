@@ -3,18 +3,20 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ReactNode } from 'react';
 
-import { ADMIN_COOKIE_NAME, getExpectedSessionToken } from '../../lib/auth';
+import { ADMIN_COOKIE_NAME, revokeSessionToken, validateSessionToken } from '../../lib/auth';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   async function logout() {
     'use server';
 
+    const token = cookies().get(ADMIN_COOKIE_NAME)?.value;
+    revokeSessionToken(token ?? undefined);
     cookies().delete(ADMIN_COOKIE_NAME);
     redirect('/login');
   }
 
   const cookieToken = cookies().get(ADMIN_COOKIE_NAME)?.value;
-  if (cookieToken !== getExpectedSessionToken()) {
+  if (!validateSessionToken(cookieToken)) {
     redirect('/login');
   }
 
