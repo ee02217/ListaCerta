@@ -1,3 +1,4 @@
+import { PriceWithRelationsSchema, PricesWithRelationsArraySchema } from '@listacerta/shared-types';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,7 +30,7 @@ export class PricesService {
       });
     }
 
-    return this.prisma.price.create({
+    const price = await this.prisma.price.create({
       data: {
         productId: body.productId,
         storeId: body.storeId,
@@ -46,6 +47,8 @@ export class PricesService {
         device: true,
       },
     });
+
+    return PriceWithRelationsSchema.parse(price);
   }
 
   async getBestPrice(productId: string) {
@@ -65,11 +68,11 @@ export class PricesService {
       throw new NotFoundException(`No active prices for product: ${productId}`);
     }
 
-    return bestPrice;
+    return PriceWithRelationsSchema.parse(bestPrice);
   }
 
   async listModerationQueue(query: ListModerationQuery) {
-    return this.prisma.price.findMany({
+    const prices = await this.prisma.price.findMany({
       where: query.status ? { status: query.status } : undefined,
       include: {
         product: true,
@@ -79,11 +82,13 @@ export class PricesService {
       orderBy: [{ capturedAt: 'desc' }],
       take: query.limit,
     });
+
+    return PricesWithRelationsArraySchema.parse(prices);
   }
 
   async moderatePrice(id: string, body: ModeratePriceBody) {
     try {
-      return await this.prisma.price.update({
+      const price = await this.prisma.price.update({
         where: { id },
         data: { status: body.status },
         include: {
@@ -92,6 +97,8 @@ export class PricesService {
           device: true,
         },
       });
+
+      return PriceWithRelationsSchema.parse(price);
     } catch {
       throw new NotFoundException(`Price not found: ${id}`);
     }

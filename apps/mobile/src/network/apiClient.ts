@@ -1,3 +1,11 @@
+import {
+  PriceSchema,
+  ProductSchema,
+  ProductsArraySchema,
+  type Price,
+  type Product,
+} from '@listacerta/shared-types';
+
 import { API_BASE_URL } from './config';
 
 type RequestOptions = {
@@ -31,14 +39,29 @@ class ApiClient {
 
 export const apiClient = new ApiClient(API_BASE_URL);
 
-// Intentionally left as stubs until backend contracts are finalized.
 export const productApi = {
-  async fetchByBarcode(_barcode: string) {
-    throw new Error('Not implemented yet: productApi.fetchByBarcode');
+  async fetchByBarcode(barcode: string): Promise<Product> {
+    const payload = await apiClient.request<unknown>(`/products/${encodeURIComponent(barcode)}`);
+    return ProductSchema.parse(payload);
+  },
+
+  async search(query?: string): Promise<Product[]> {
+    const path = query?.trim()
+      ? `/products?q=${encodeURIComponent(query.trim())}&limit=50`
+      : '/products?limit=50';
+
+    const payload = await apiClient.request<unknown>(path);
+    return ProductsArraySchema.parse(payload);
   },
 };
 
 export const priceApi = {
+  async fetchBestPrice(productId: string): Promise<Price> {
+    const payload = await apiClient.request<unknown>(`/prices/best/${productId}`);
+    return PriceSchema.parse(payload);
+  },
+
+  // Placeholder for future sync endpoint.
   async syncPendingPrices() {
     throw new Error('Not implemented yet: priceApi.syncPendingPrices');
   },

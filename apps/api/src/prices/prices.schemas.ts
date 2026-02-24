@@ -1,3 +1,4 @@
+import { PriceStatusSchema } from '@listacerta/shared-types';
 import { z } from 'zod';
 
 export const productIdSchema = z.string().uuid();
@@ -11,16 +12,16 @@ export const createPriceSchema = z.object({
   capturedAt: z.string().datetime().optional(),
   submittedBy: z.string().trim().min(1).nullable().optional(),
   photoUrl: z.string().url().nullable().optional(),
-  status: z.enum(['active', 'flagged']).optional().default('active'),
+  status: PriceStatusSchema.optional().default('active'),
 });
 
 export const listModerationQuerySchema = z.object({
-  status: z.enum(['active', 'flagged']).optional(),
+  status: PriceStatusSchema.optional(),
   limit: z.coerce.number().int().min(1).max(200).optional().default(100),
 });
 
 export const moderatePriceSchema = z.object({
-  status: z.enum(['active', 'flagged']),
+  status: PriceStatusSchema,
 });
 
 export type CreatePriceBody = z.infer<typeof createPriceSchema>;

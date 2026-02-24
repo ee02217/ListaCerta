@@ -1,3 +1,9 @@
+import type {
+  Price as SharedPrice,
+  Product as SharedProduct,
+  Store as SharedStore,
+} from '@listacerta/shared-types';
+
 export type List = {
   id: string;
   name: string;
@@ -39,3 +45,7 @@ export type Price = {
 export type PriceWithStore = Price & {
   storeName: string;
 };
+
+export type ApiProduct = SharedProduct;
+export type ApiStore = SharedStore;
+export type ApiPrice = SharedPrice;

@@ -1,3 +1,4 @@
+import { ProductSourceSchema } from '@listacerta/shared-types';
 import { z } from 'zod';
 
 export const barcodeSchema = z.string().trim().min(4).max(64);
@@ -14,7 +15,7 @@ export const createProductSchema = z.object({
   brand: z.string().trim().min(1).nullable().optional(),
   category: z.string().trim().min(1).nullable().optional(),
   imageUrl: z.string().url().nullable().optional(),
-  source: z.enum(['OFF', 'manual']).optional().default('manual'),
+  source: ProductSourceSchema.optional().default('manual'),
 });
 
 export const updateProductSchema = z
@@ -24,7 +25,7 @@ export const updateProductSchema = z
     brand: z.string().trim().min(1).nullable().optional(),
     category: z.string().trim().min(1).nullable().optional(),
     imageUrl: z.string().url().nullable().optional(),
-    source: z.enum(['OFF', 'manual']).optional(),
+    source: ProductSourceSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one field must be provided for update',

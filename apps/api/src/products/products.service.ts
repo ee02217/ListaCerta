@@ -1,3 +1,4 @@
+import { ProductSchema, ProductsArraySchema } from '@listacerta/shared-types';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ProductSource } from '@prisma/client';
 
@@ -15,7 +16,7 @@ export class ProductsService {
   async listProducts(query: ListProductsQuery) {
     const search = query.q?.trim();
 
-    return this.prisma.product.findMany({
+    const products = await this.prisma.product.findMany({
       where: search
         ? {
             OR: [
@@ -27,6 +28,8 @@ export class ProductsService {
       orderBy: [{ updatedAt: 'desc' }],
       take: query.limit,
     });
+
+    return ProductsArraySchema.parse(products);
   }
 
   async getByBarcodeWithCacheAside(barcode: string) {
@@ -35,7 +38,7 @@ export class ProductsService {
     });
 
     if (localProduct) {
-      return localProduct;
+      return ProductSchema.parse(localProduct);
     }
 
     const offProduct = await this.openFoodFactsService.fetchProductByBarcode(barcode);
@@ -44,7 +47,7 @@ export class ProductsService {
       throw new NotFoundException(`Product not found for barcode: ${barcode}`);
     }
 
-    return this.prisma.product.upsert({
+    const product = await this.prisma.product.upsert({
       where: { barcode },
       update: {
         name: offProduct.name,
@@ -62,11 +65,13 @@ export class ProductsService {
         source: ProductSource.OFF,
       },
     });
+
+    return ProductSchema.parse(product);
   }
 
   async createManualProduct(body: CreateProductBody) {
     try {
-      return await this.prisma.product.create({
+      const product = await this.prisma.product.create({
         data: {
           barcode: body.barcode,
           name: body.name,
@@ -76,6 +81,8 @@ export class ProductsService {
           source: body.source,
         },
       });
+
+      return ProductSchema.parse(product);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException(`Product with barcode ${body.barcode} already exists`);
@@ -87,7 +94,7 @@ export class ProductsService {
 
   async updateProduct(id: string, body: UpdateProductBody) {
     try {
-      return await this.prisma.product.update({
+      const product = await this.prisma.product.update({
         where: { id },
         data: {
           barcode: body.barcode,
@@ -98,6 +105,8 @@ export class ProductsService {
           source: body.source,
         },
       });
+
+      return ProductSchema.parse(product);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
