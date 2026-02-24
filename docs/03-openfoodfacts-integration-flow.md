@@ -3,12 +3,12 @@
 ```mermaid
 sequenceDiagram
   autonumber
-  participant Client as Mobile/Admin
+  participant Client as Mobile or Admin
   participant API as ProductsService
   participant PG as PostgreSQL
   participant OFF as OpenFoodFacts
 
-  Client->>API: GET /products/:barcode
+  Client->>API: GET /products/{barcode}
   API->>PG: SELECT product by barcode
 
   alt Found in local DB
@@ -16,15 +16,16 @@ sequenceDiagram
     API-->>Client: Return local product
   else Not found locally
     PG-->>API: Empty
-    API->>OFF: GET /api/v2/product/:barcode.json
+    API->>OFF: GET /api/v2/product/{barcode}.json
+
     alt OFF has valid product
       OFF-->>API: Raw OFF payload
-      API->>API: Normalize fields (name/brand/category/image)
-      API->>PG: UPSERT product (source=OFF)
+      API->>API: Normalize fields (name, brand, category, image)
+      API->>PG: UPSERT product with source OFF
       PG-->>API: Stored product
       API-->>Client: Return normalized product
-    else OFF missing/invalid
-      OFF-->>API: Not found / invalid response
+    else OFF missing or invalid
+      OFF-->>API: Not found or invalid response
       API-->>Client: 404 Product not found
     end
   end
