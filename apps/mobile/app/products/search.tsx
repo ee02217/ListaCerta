@@ -82,7 +82,9 @@ export default function ProductSearchScreen() {
               <Text style={styles.cardMeta}>{item.barcode}</Text>
             </View>
             <Link href={`/products/${item.id}`} asChild>
-              <Pressable style={styles.moreButton}>view</Pressable>
+              <Pressable style={styles.moreButton}>
+                <Text style={styles.moreButtonLabel}>View</Text>
+              </Pressable>
             </Link>
           </Pressable>
         )}
@@ -146,5 +148,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     backgroundColor: '#0ea5e9',
     borderRadius: 8,
+  },
+  moreButtonLabel: {
+    color: '#fff',
+    fontWeight: '700',
   },
 });
