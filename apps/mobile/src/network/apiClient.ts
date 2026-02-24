@@ -15,14 +15,26 @@ type RequestOptions = {
   signal?: AbortSignal;
 };
 
+export class ApiHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly url: string,
+    public readonly responseBody?: string,
+  ) {
+    super(`API request failed (${status}) for ${url}${responseBody ? `: ${responseBody}` : ''}`);
+    this.name = 'ApiHttpError';
+  }
+}
+
 class ApiClient {
   constructor(private readonly baseUrl: string) {}
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
     let response: Response;
 
     try {
-      response = await fetch(`${this.baseUrl}${path}`, {
+      response = await fetch(url, {
         method: options.method ?? 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -34,12 +46,13 @@ class ApiClient {
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Unknown network error';
       throw new Error(
-        `Network request failed (${this.baseUrl}${path}). Check API base URL and phone network. Cause: ${reason}`,
+        `Network request failed (${url}). Check API base URL and phone network. Cause: ${reason}`,
       );
     }
 
     if (!response.ok) {
-      throw new Error(`API request failed (${response.status}): ${path}`);
+      const body = await response.text().catch(() => '');
+      throw new ApiHttpError(response.status, url, body);
     }
 
     return (await response.json()) as T;

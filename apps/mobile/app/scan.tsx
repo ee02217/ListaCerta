@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { productApi } from '../src/network/apiClient';
+import { ApiHttpError, productApi } from '../src/network/apiClient';
 import { productRepository } from '../src/repositories/ProductRepository';
 import { useUiStore } from '../src/state/uiStore';
 
@@ -54,12 +54,21 @@ export default function ScanBarcodeScreen() {
 
                   router.replace({ pathname: '/products/[id]', params: { id: product.id } });
                 } catch (error) {
-                  Alert.alert(
-                    'Product lookup failed',
-                    error instanceof Error
-                      ? error.message
-                      : 'Could not retrieve product details from backend.',
-                  );
+                  if (error instanceof ApiHttpError && error.status === 404) {
+                    const localDraft = await productRepository.ensureByBarcode(data);
+                    router.replace({ pathname: '/products/[id]', params: { id: localDraft.id } });
+                    Alert.alert(
+                      'Product not found in catalog',
+                      'This barcode is not in local DB or OpenFoodFacts yet. You can fill product details manually.',
+                    );
+                  } else {
+                    Alert.alert(
+                      'Product lookup failed',
+                      error instanceof Error
+                        ? error.message
+                        : 'Could not retrieve product details from backend.',
+                    );
+                  }
                 } finally {
                   setTimeout(() => setIsHandlingScan(false), 750);
                 }
