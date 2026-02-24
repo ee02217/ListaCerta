@@ -6,8 +6,13 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "assetBundlePatterns": ["**/*"],
+    "plugins": ["expo-router", "expo-camera"],
+    "experiments": {
+      "typedRoutes": true
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.listacerta.mobile"
     },
     "android": {
       "package": "com.listacerta.mobile"

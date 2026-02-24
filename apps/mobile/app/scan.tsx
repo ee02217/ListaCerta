@@ -1,0 +1,104 @@
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { productRepository } from '../src/repositories/ProductRepository';
+import { useUiStore } from '../src/state/uiStore';
+
+export default function ScanBarcodeScreen() {
+  const [permission, requestPermission] = useCameraPermissions();
+  const [isHandlingScan, setIsHandlingScan] = useState(false);
+  const setLastScannedBarcode = useUiStore((state) => state.setLastScannedBarcode);
+
+  if (!permission) {
+    return (
+      <View style={styles.center}>
+        <Text>Loading camera permissions…</Text>
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.info}>Camera access is required to scan barcodes.</Text>
+        <Pressable style={styles.button} onPress={() => void requestPermission()}>
+          <Text style={styles.buttonLabel}>Grant camera access</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.hint}>Point camera at a barcode</Text>
+      <CameraView
+        style={styles.camera}
+        facing="back"
+        barcodeScannerSettings={{
+          barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'qr'],
+        }}
+        onBarcodeScanned={
+          isHandlingScan
+            ? undefined
+            : async ({ data }) => {
+                try {
+                  setIsHandlingScan(true);
+                  setLastScannedBarcode(data);
+                  const product = await productRepository.ensureByBarcode(data);
+                  router.replace({ pathname: '/products/[id]', params: { id: product.id } });
+                } finally {
+                  setTimeout(() => setIsHandlingScan(false), 750);
+                }
+              }
+        }
+      />
+      <Text style={styles.footer}>Supported: EAN-13, EAN-8, UPC-A, UPC-E, QR</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#111827',
+    padding: 16,
+    gap: 12,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  camera: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  hint: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  info: {
+    textAlign: 'center',
+  },
+  footer: {
+    color: '#cbd5e1',
+    textAlign: 'center',
+  },
+  button: {
+    borderRadius: 10,
+    backgroundColor: '#0ea5e9',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  buttonLabel: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+});
