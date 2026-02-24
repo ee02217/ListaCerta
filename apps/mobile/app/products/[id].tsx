@@ -1,8 +1,10 @@
 import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import type { Product as ApiProduct } from '@listacerta/shared-types';
 import { PriceWithStore, Product } from '../../src/domain/models';
+import { ApiHttpError, productApi } from '../../src/network/apiClient';
 import { priceRepository } from '../../src/repositories/PriceRepository';
 import { productRepository } from '../../src/repositories/ProductRepository';
 
@@ -12,6 +14,7 @@ export default function ProductDetailScreen() {
   const [prices, setPrices] = useState<PriceWithStore[]>([]);
   const [nameDraft, setNameDraft] = useState('');
   const [brandDraft, setBrandDraft] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const productId = useMemo(() => id ?? '', [id]);
 
@@ -40,13 +43,55 @@ export default function ProductDetailScreen() {
     }, [load]),
   );
 
+  const isUuid = (value: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
   const saveProductMeta = async () => {
-    if (!productId || !nameDraft.trim()) {
+    if (!productId || !nameDraft.trim() || !product?.barcode) {
       return;
     }
 
-    await productRepository.updateProductName(productId, nameDraft.trim(), brandDraft.trim() || null);
-    await load();
+    setIsSaving(true);
+
+    try {
+      let apiProduct: ApiProduct;
+
+      if (isUuid(productId)) {
+        apiProduct = await productApi.updateProduct(productId, {
+          name: nameDraft.trim(),
+          brand: brandDraft.trim() || null,
+        });
+      } else {
+        try {
+          apiProduct = await productApi.createManualProduct({
+            barcode: product.barcode,
+            name: nameDraft.trim(),
+            brand: brandDraft.trim() || null,
+            source: 'manual',
+          });
+        } catch (error) {
+          if (error instanceof ApiHttpError && error.status === 409) {
+            apiProduct = await productApi.fetchByBarcode(product.barcode);
+            if (isUuid(apiProduct.id)) {
+              apiProduct = await productApi.updateProduct(apiProduct.id, {
+                name: nameDraft.trim(),
+                brand: brandDraft.trim() || null,
+              });
+            }
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      await productRepository.upsertFromApiProduct(apiProduct);
+      await load();
+      Alert.alert('Saved', 'Product updated successfully.');
+    } catch (error) {
+      Alert.alert('Save failed', error instanceof Error ? error.message : 'Could not save product.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const isIncomplete = !product?.name || !product?.brand;
@@ -82,8 +127,12 @@ export default function ProductDetailScreen() {
         placeholderTextColor="#888"
       />
 
-      <Pressable style={styles.primaryButton} onPress={saveProductMeta}>
-        <Text style={styles.primaryButtonLabel}>Save product</Text>
+      <Pressable
+        style={[styles.primaryButton, isSaving && styles.primaryButtonDisabled]}
+        onPress={saveProductMeta}
+        disabled={isSaving}
+      >
+        <Text style={styles.primaryButtonLabel}>{isSaving ? 'Saving…' : 'Save product'}</Text>
       </Pressable>
 
       <View style={styles.headerRow}>
@@ -156,6 +205,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     marginBottom: 6,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.6,
   },
   primaryButtonLabel: {
     color: '#fff',

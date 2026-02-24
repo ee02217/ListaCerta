@@ -61,6 +61,15 @@ class ApiClient {
 
 export const apiClient = new ApiClient(API_BASE_URL);
 
+type SaveProductInput = {
+  barcode?: string;
+  name?: string;
+  brand?: string | null;
+  category?: string | null;
+  imageUrl?: string | null;
+  source?: 'OFF' | 'manual';
+};
+
 export const productApi = {
   async fetchByBarcode(barcode: string): Promise<Product> {
     const payload = await apiClient.request<unknown>(`/products/barcode/${encodeURIComponent(barcode)}`);
@@ -74,6 +83,27 @@ export const productApi = {
 
     const payload = await apiClient.request<unknown>(path);
     return ProductsArraySchema.parse(payload);
+  },
+
+  async createManualProduct(input: SaveProductInput): Promise<Product> {
+    const payload = await apiClient.request<unknown>('/products', {
+      method: 'POST',
+      body: {
+        ...input,
+        source: input.source ?? 'manual',
+      },
+    });
+
+    return ProductSchema.parse(payload);
+  },
+
+  async updateProduct(productId: string, input: SaveProductInput): Promise<Product> {
+    const payload = await apiClient.request<unknown>(`/products/${productId}`, {
+      method: 'PATCH',
+      body: input,
+    });
+
+    return ProductSchema.parse(payload);
   },
 };
 
