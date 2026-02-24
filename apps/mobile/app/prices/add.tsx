@@ -12,23 +12,84 @@ import { storeRepository } from '../../src/repositories/StoreRepository';
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
-const extractEuroValue = (textBlocks: string[]): string | null => {
-  const fullText = textBlocks.join(' ').replace(/\s+/g, ' ').trim();
+const DISCOUNT_HINT_REGEX = /(desconto|promo|promoc|poupe|poupa|menos|off|%|cart[aã]o|saldo)/i;
+const CURRENCY_HINT_REGEX = /(€|eur|euro|\bc\b|cent)/i;
 
-  const euroPatterns = [
-    /€\s*(\d{1,4}(?:[.,]\d{2})?)/g,
-    /(\d{1,4}(?:[.,]\d{2})?)\s*€/g,
-    /(\d{1,4}[.,]\d{2})/g,
-  ];
-
-  for (const pattern of euroPatterns) {
-    const match = pattern.exec(fullText);
-    if (match?.[1]) {
-      return match[1].replace(',', '.');
-    }
+const parseLocalizedAmount = (raw: string): number | null => {
+  let normalized = raw.replace(/\s+/g, '').replace(/[^\d.,]/g, '');
+  if (!normalized) {
+    return null;
   }
 
-  return null;
+  if (normalized.includes(',') && normalized.includes('.')) {
+    if (normalized.lastIndexOf(',') > normalized.lastIndexOf('.')) {
+      normalized = normalized.replace(/\./g, '').replace(',', '.');
+    } else {
+      normalized = normalized.replace(/,/g, '');
+    }
+  } else if (normalized.includes(',')) {
+    normalized = normalized.replace(',', '.');
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return parsed;
+};
+
+const extractEuroValue = (textBlocks: string[]): string | null => {
+  const candidates: Array<{ value: number; score: number }> = [];
+
+  textBlocks.forEach((rawLine, lineIndex) => {
+    const line = rawLine.replace(/\s+/g, ' ').trim();
+    if (!line) {
+      return;
+    }
+
+    const hasDiscountHint = DISCOUNT_HINT_REGEX.test(line);
+    const hasCurrencyHint = CURRENCY_HINT_REGEX.test(line);
+
+    for (const match of line.matchAll(/(\d{1,4}[.,]\d{2})/g)) {
+      const value = parseLocalizedAmount(match[1]);
+      if (value == null) {
+        continue;
+      }
+
+      let score = 100;
+      if (hasCurrencyHint) score += 25;
+      if (hasDiscountHint) score -= 45;
+      if (lineIndex <= 1) score += 5;
+      if (value <= 20) score += 8;
+      if (value >= 50) score -= 15;
+
+      candidates.push({ value, score });
+    }
+
+    // OCR fallback: detect split major/minor format like "2 99 €".
+    for (const match of line.matchAll(/(\d{1,3})\s+(\d{2})\s*(?:€|eur|euro|\bc\b)?/gi)) {
+      const value = Number(`${match[1]}.${match[2]}`);
+      if (!Number.isFinite(value)) {
+        continue;
+      }
+
+      let score = 92;
+      if (hasCurrencyHint) score += 18;
+      if (hasDiscountHint) score -= 45;
+      if (lineIndex <= 1) score += 4;
+      if (value <= 20) score += 8;
+
+      candidates.push({ value, score });
+    }
+  });
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  candidates.sort((a, b) => b.score - a.score || a.value - b.value);
+  return candidates[0].value.toFixed(2);
 };
 
 export default function AddPriceScreen() {
