@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { ADMIN_COOKIE_NAME, getAdminToken } from './lib/auth';
+import { ADMIN_COOKIE_NAME, getExpectedSessionToken } from './lib/auth';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -16,7 +16,7 @@ export function middleware(request: NextRequest) {
   }
 
   const cookieToken = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
-  const expectedToken = getAdminToken();
+  const expectedToken = getExpectedSessionToken();
 
   if (cookieToken !== expectedToken) {
     return NextResponse.redirect(new URL('/login', request.url));

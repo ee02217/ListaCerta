@@ -1,7 +1,16 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || 'http://localhost:3001';
+const publicApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || 'http://localhost:3001';
+const internalApiBaseUrl = process.env.API_INTERNAL_BASE_URL?.trim() || 'http://api:3001';
+
+const getBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return internalApiBaseUrl;
+  }
+
+  return publicApiBaseUrl;
+};
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getBaseUrl()}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -18,4 +27,4 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return (await response.json()) as T;
 }
 
-export { API_BASE_URL };
+export { publicApiBaseUrl as API_BASE_URL };

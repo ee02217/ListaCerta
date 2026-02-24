@@ -20,7 +20,7 @@ Next.js App Router admin UI for catalog and moderation operations.
 - Prices moderation view
   - Flag outliers
   - Approve/reject
-- Temporary token auth via env (`ADMIN_TOKEN`)
+- Temporary username/password auth via env (`ADMIN_USERNAME` / `ADMIN_PASSWORD`)
 
 ## Run
 
@@ -36,7 +36,9 @@ Admin UI: `http://localhost:3002`
 ## Required environment variables
 
 - `NEXT_PUBLIC_API_BASE_URL` (default: `http://localhost:3001`)
-- `ADMIN_TOKEN` (used by login + middleware auth guard)
+- `ADMIN_USERNAME` (default: `admin`)
+- `ADMIN_PASSWORD` (default: `change-me-password`)
+- `ADMIN_SESSION_SECRET` (used to sign cookie session)
 
 ## Pages
 

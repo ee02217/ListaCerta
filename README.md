@@ -18,6 +18,7 @@ ListaCerta/
 ├── packages/
 │   └── shared-types/  # Zod schemas + shared types
 ├── docker-compose.yml
+├── .env.example
 ├── package.json       # npm workspaces root
 ├── tsconfig.base.json # shared TypeScript config
 └── README.md
@@ -35,48 +36,62 @@ ListaCerta/
 npm install
 ```
 
-## Local infrastructure (PostgreSQL)
+## Local development setup
+
+1) Copy environment template:
 
 ```bash
-docker compose up -d
+cp .env.example .env
 ```
 
-This starts:
-- PostgreSQL on `localhost:5432`
-- Adminer on `localhost:8080`
-
-## Run apps independently
-
-From repo root:
+2) Start core stack (Postgres + API):
 
 ```bash
-npm run dev:mobile
-npm run dev:api
-npm run dev:admin
+docker compose up -d --build postgres api
 ```
 
-Or directly with workspaces:
+3) Start admin in production mode (optional):
 
 ```bash
-npm run dev -w @listacerta/mobile
-npm run dev -w @listacerta/api
-npm run dev -w @listacerta/admin
+docker compose --profile admin up -d --build admin
 ```
 
-## Build all workspaces
+4) Start admin in dev mode with hot reload (optional):
 
 ```bash
-npm run build
+docker compose --profile dev up -d admin-dev
 ```
 
-## Type check all workspaces
+5) Start MinIO (optional S3-compatible storage):
 
 ```bash
-npm run typecheck
+docker compose --profile storage up -d minio
+```
+
+Start everything together (core + admin + minio):
+
+```bash
+docker compose --profile admin --profile storage up -d --build
+```
+
+## Service URLs
+
+- API: `http://localhost:3001`
+- Admin (prod profile): `http://localhost:3002`
+- Admin (dev profile): `http://localhost:3003`
+- PostgreSQL: `localhost:5432`
+- MinIO API (storage profile): `http://localhost:9000`
+- MinIO Console (storage profile): `http://localhost:9001`
+
+## Stop everything
+
+```bash
+docker compose --profile admin --profile dev --profile storage down
 ```
 
 ## Notes
 
+- PostgreSQL data is persisted in the `postgres_data` volume.
+- API waits for DB health before starting.
 - Shared schemas/types live in `packages/shared-types` and are imported via `@listacerta/shared-types`.
 - API database config is in `apps/api/prisma/schema.prisma` and uses `DATABASE_URL`.
-- Use `apps/api/.env.example` as a template for local env setup.
