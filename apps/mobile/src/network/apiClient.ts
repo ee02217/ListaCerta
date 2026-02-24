@@ -19,15 +19,24 @@ class ApiClient {
   constructor(private readonly baseUrl: string) {}
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: options.method ?? 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers ?? {}),
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-      signal: options.signal,
-    });
+    let response: Response;
+
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        method: options.method ?? 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers ?? {}),
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+        signal: options.signal,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Unknown network error';
+      throw new Error(
+        `Network request failed (${this.baseUrl}${path}). Check API base URL and phone network. Cause: ${reason}`,
+      );
+    }
 
     if (!response.ok) {
       throw new Error(`API request failed (${response.status}): ${path}`);
