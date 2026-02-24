@@ -45,7 +45,7 @@ npm run dev -w @listacerta/api
 - `POST /prices`
 - `GET /prices/moderation?status=&limit=`
 - `PATCH /prices/:id/moderation`
-- `GET /prices/best/:productId`
+- `GET /prices/best/:productId` (best overall + grouped by store + price history)
 - `GET /stores`
 - `POST /stores`
 - `GET /health`

@@ -1,10 +1,12 @@
 import {
+  PriceAggregationSchema,
   PriceSchema,
   PriceSubmissionResultSchema,
   ProductSchema,
   ProductsArraySchema,
   StoresArraySchema,
   type Price,
+  type PriceAggregation,
   type PriceSubmissionResult,
   type Product,
   type Store,
@@ -119,9 +121,9 @@ export const storeApi = {
 };
 
 export const priceApi = {
-  async fetchBestPrice(productId: string): Promise<Price> {
+  async fetchBestPrice(productId: string): Promise<PriceAggregation> {
     const payload = await apiClient.request<unknown>(`/prices/best/${productId}`);
-    return PriceSchema.parse(payload);
+    return PriceAggregationSchema.parse(payload);
   },
 
   async submitPrice(input: {

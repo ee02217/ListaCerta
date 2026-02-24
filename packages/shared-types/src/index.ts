@@ -57,6 +57,17 @@ export const StoresArraySchema = z.array(StoreSchema);
 export const PricesArraySchema = z.array(PriceSchema);
 export const PricesWithRelationsArraySchema = z.array(PriceWithRelationsSchema);
 
+export const PriceByStoreSummarySchema = z.object({
+  store: StoreSchema,
+  bestPrice: PriceWithRelationsSchema,
+});
+
+export const PriceAggregationSchema = z.object({
+  bestOverall: PriceWithRelationsSchema,
+  groupedByStore: z.array(PriceByStoreSummarySchema),
+  priceHistory: PricesWithRelationsArraySchema,
+});
+
 export const PriceSubmissionResultSchema = z.object({
   createdPrice: PriceWithRelationsSchema,
   bestPrice: PriceWithRelationsSchema,
@@ -115,6 +126,8 @@ export type Store = z.infer<typeof StoreSchema>;
 export type Device = z.infer<typeof DeviceSchema>;
 export type Price = z.infer<typeof PriceSchema>;
 export type PriceWithRelations = z.infer<typeof PriceWithRelationsSchema>;
+export type PriceByStoreSummary = z.infer<typeof PriceByStoreSummarySchema>;
+export type PriceAggregation = z.infer<typeof PriceAggregationSchema>;
 export type PriceSubmissionResult = z.infer<typeof PriceSubmissionResultSchema>;
 
 export type ApiError = z.infer<typeof ApiErrorSchema>;

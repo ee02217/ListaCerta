@@ -1,4 +1,5 @@
 import {
+  PriceAggregationSchema,
   PriceSubmissionResultSchema,
   PriceWithRelationsSchema,
   PricesWithRelationsArraySchema,
@@ -76,23 +77,56 @@ export class PricesService {
   }
 
   async getBestPrice(productId: string) {
-    const bestPrice = await this.prisma.price.findFirst({
+    const history = await this.prisma.price.findMany({
       where: {
         productId,
         status: 'active',
       },
-      orderBy: [{ priceCents: 'asc' }, { capturedAt: 'desc' }],
+      orderBy: [{ capturedAt: 'desc' }],
       include: {
         product: true,
         store: true,
+        device: true,
       },
     });
 
-    if (!bestPrice) {
+    if (history.length === 0) {
       throw new NotFoundException(`No active prices for product: ${productId}`);
     }
 
-    return PriceWithRelationsSchema.parse(bestPrice);
+    const bestOverall = [...history].sort((a, b) => a.priceCents - b.priceCents || +new Date(b.capturedAt) - +new Date(a.capturedAt))[0];
+
+    const groupedMap = new Map<string, (typeof history)[number]>();
+
+    for (const price of history) {
+      const current = groupedMap.get(price.storeId);
+
+      if (!current) {
+        groupedMap.set(price.storeId, price);
+        continue;
+      }
+
+      const shouldReplace =
+        price.priceCents < current.priceCents ||
+        (price.priceCents === current.priceCents && +new Date(price.capturedAt) > +new Date(current.capturedAt));
+
+      if (shouldReplace) {
+        groupedMap.set(price.storeId, price);
+      }
+    }
+
+    const groupedByStore = [...groupedMap.values()]
+      .sort((a, b) => a.priceCents - b.priceCents)
+      .map((price) => ({
+        store: price.store,
+        bestPrice: price,
+      }));
+
+    return PriceAggregationSchema.parse({
+      bestOverall,
+      groupedByStore,
+      priceHistory: history,
+    });
   }
 
   async listModerationQueue(query: ListModerationQuery) {

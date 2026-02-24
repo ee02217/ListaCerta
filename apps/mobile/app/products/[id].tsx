@@ -1,10 +1,15 @@
 import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import type { Product as ApiProduct } from '@listacerta/shared-types';
+import type {
+  PriceAggregation,
+  PriceByStoreSummary,
+  PriceWithRelations,
+  Product as ApiProduct,
+} from '@listacerta/shared-types';
 import { List, PriceWithStore, Product } from '../../src/domain/models';
-import { ApiHttpError, productApi } from '../../src/network/apiClient';
+import { ApiHttpError, priceApi, productApi } from '../../src/network/apiClient';
 import { listRepository } from '../../src/repositories/ListRepository';
 import { priceRepository } from '../../src/repositories/PriceRepository';
 import { productRepository } from '../../src/repositories/ProductRepository';
@@ -13,6 +18,9 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [prices, setPrices] = useState<PriceWithStore[]>([]);
+  const [bestOverall, setBestOverall] = useState<PriceWithRelations | null>(null);
+  const [groupedByStore, setGroupedByStore] = useState<PriceByStoreSummary[]>([]);
+  const [priceHistory, setPriceHistory] = useState<PriceWithRelations[]>([]);
   const [nameDraft, setNameDraft] = useState('');
   const [brandDraft, setBrandDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -40,6 +48,29 @@ export default function ProductDetailScreen() {
     if (productData) {
       setNameDraft(productData.name);
       setBrandDraft(productData.brand ?? '');
+    }
+
+    if (isUuid(productId)) {
+      try {
+        const aggregation: PriceAggregation = await priceApi.fetchBestPrice(productId);
+        setBestOverall(aggregation.bestOverall);
+        setGroupedByStore(aggregation.groupedByStore);
+        setPriceHistory(aggregation.priceHistory);
+
+        for (const historyEntry of aggregation.priceHistory) {
+          await priceRepository.upsertFromApiPrice(historyEntry);
+        }
+      } catch (error) {
+        if (error instanceof ApiHttpError && error.status === 404) {
+          setBestOverall(null);
+          setGroupedByStore([]);
+          setPriceHistory([]);
+        }
+      }
+    } else {
+      setBestOverall(null);
+      setGroupedByStore([]);
+      setPriceHistory([]);
     }
   }, [productId]);
 
@@ -194,7 +225,7 @@ export default function ProductDetailScreen() {
       </Pressable>
 
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Local prices</Text>
+        <Text style={styles.sectionTitle}>Prices</Text>
         <Link href={{ pathname: '/prices/add', params: { productId } }} asChild>
           <Pressable style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonLabel}>Add price</Text>
@@ -202,19 +233,61 @@ export default function ProductDetailScreen() {
         </Link>
       </View>
 
-      <FlatList
-        data={prices}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ gap: 8, paddingBottom: 16 }}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.price}>{(item.amountCents / 100).toFixed(2)} {item.currency}</Text>
-            <Text style={styles.meta}>{item.storeName}</Text>
-            <Text style={styles.meta}>{new Date(item.observedAt).toLocaleString()}</Text>
-          </View>
+      {bestOverall ? (
+        <View style={styles.bestPriceCard}>
+          <Text style={styles.bestPriceLabel}>Best price</Text>
+          <Text style={styles.bestPriceValue}>
+            {(bestOverall.priceCents / 100).toFixed(2)} {bestOverall.currency}
+          </Text>
+          <Text style={styles.meta}>at {bestOverall.store?.name ?? 'Unknown store'}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.pricesSection}>
+        <Text style={styles.subsectionTitle}>Lowest active by store</Text>
+        {groupedByStore.length === 0 ? (
+          <Text style={styles.empty}>No backend prices yet.</Text>
+        ) : (
+          groupedByStore.map((entry) => (
+            <View key={entry.store.id} style={styles.card}>
+              <Text style={styles.cardTitleSmall}>{entry.store.name}</Text>
+              <Text style={styles.price}>
+                {(entry.bestPrice.priceCents / 100).toFixed(2)} {entry.bestPrice.currency}
+              </Text>
+              <Text style={styles.meta}>{new Date(entry.bestPrice.capturedAt).toLocaleString()}</Text>
+            </View>
+          ))
         )}
-        ListEmptyComponent={<Text style={styles.empty}>No prices yet for this product.</Text>}
-      />
+      </View>
+
+      <View style={styles.pricesSection}>
+        <Text style={styles.subsectionTitle}>Price history</Text>
+        {(priceHistory.length > 0 ? priceHistory : []).slice(0, 20).map((entry) => (
+          <View key={entry.id} style={styles.card}>
+            <Text style={styles.price}>
+              {(entry.priceCents / 100).toFixed(2)} {entry.currency}
+            </Text>
+            <Text style={styles.meta}>{entry.store?.name ?? 'Unknown store'}</Text>
+            <Text style={styles.meta}>{new Date(entry.capturedAt).toLocaleString()}</Text>
+          </View>
+        ))}
+
+        {priceHistory.length === 0 && prices.length > 0
+          ? prices.map((item) => (
+              <View key={item.id} style={styles.card}>
+                <Text style={styles.price}>
+                  {(item.amountCents / 100).toFixed(2)} {item.currency}
+                </Text>
+                <Text style={styles.meta}>{item.storeName}</Text>
+                <Text style={styles.meta}>{new Date(item.observedAt).toLocaleString()}</Text>
+              </View>
+            ))
+          : null}
+
+        {priceHistory.length === 0 && prices.length === 0 ? (
+          <Text style={styles.empty}>No prices yet for this product.</Text>
+        ) : null}
+      </View>
 
       <Modal
         visible={isAddToListModalVisible}
@@ -369,6 +442,33 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
+  bestPriceCard: {
+    backgroundColor: '#ecfeff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#67e8f9',
+    padding: 12,
+  },
+  bestPriceLabel: {
+    color: '#0c4a6e',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  bestPriceValue: {
+    marginTop: 4,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  pricesSection: {
+    gap: 8,
+  },
+  subsectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+  },
   secondaryButton: {
     backgroundColor: '#0ea5e9',
     borderRadius: 8,
@@ -385,6 +485,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     padding: 12,
+  },
+  cardTitleSmall: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 4,
   },
   price: {
     fontSize: 18,
