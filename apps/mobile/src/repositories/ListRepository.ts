@@ -100,4 +100,11 @@ export const listRepository = {
       [itemId],
     );
   },
+
+  async updateItemQuantity(itemId: string, quantity: number): Promise<void> {
+    const db = await getDatabase();
+    const safeQuantity = Math.max(1, Math.floor(quantity));
+
+    await db.runAsync('UPDATE list_items SET quantity = ? WHERE id = ?;', [safeQuantity, itemId]);
+  },
 };

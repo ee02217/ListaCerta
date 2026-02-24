@@ -49,6 +49,11 @@ export default function ListDetailScreen() {
     await load();
   };
 
+  const updateQuantity = async (itemId: string, nextQuantity: number) => {
+    await listRepository.updateItemQuantity(itemId, Math.max(1, nextQuantity));
+    await load();
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{list?.name ?? 'List'}</Text>
@@ -71,13 +76,34 @@ export default function ListDetailScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ gap: 8 }}
         renderItem={({ item }) => (
-          <Pressable style={styles.itemRow} onPress={() => toggleDone(item.id)}>
-            <View style={[styles.checkbox, item.done && styles.checkboxDone]} />
+          <View style={styles.itemRow}>
+            <Pressable style={styles.checkboxTouchable} onPress={() => toggleDone(item.id)}>
+              <View style={[styles.checkbox, item.done && styles.checkboxDone]} />
+            </Pressable>
+
             <View style={{ flex: 1 }}>
               <Text style={[styles.itemTitle, item.done && styles.itemTitleDone]}>{item.title}</Text>
-              <Text style={styles.itemMeta}>Qty: {item.quantity}</Text>
+              <Text style={styles.itemMeta}>{item.done ? 'Purchased' : 'Pending'}</Text>
             </View>
-          </Pressable>
+
+            <View style={styles.quantityControls}>
+              <Pressable
+                style={styles.qtyButton}
+                onPress={() => updateQuantity(item.id, item.quantity - 1)}
+              >
+                <Text style={styles.qtyButtonLabel}>-</Text>
+              </Pressable>
+
+              <Text style={styles.qtyValue}>{item.quantity}</Text>
+
+              <Pressable
+                style={styles.qtyButton}
+                onPress={() => updateQuantity(item.id, item.quantity + 1)}
+              >
+                <Text style={styles.qtyButtonLabel}>+</Text>
+              </Pressable>
+            </View>
+          </View>
         )}
         ListEmptyComponent={<Text style={styles.empty}>No items yet.</Text>}
       />
@@ -130,6 +156,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 12,
   },
+  checkboxTouchable: {
+    padding: 2,
+  },
   checkbox: {
     width: 20,
     height: 20,
@@ -153,6 +182,33 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: '#6b7280',
     fontSize: 12,
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  qtyButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  qtyButtonLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    lineHeight: 20,
+  },
+  qtyValue: {
+    minWidth: 24,
+    textAlign: 'center',
+    fontWeight: '700',
+    color: '#111827',
   },
   empty: {
     marginTop: 16,

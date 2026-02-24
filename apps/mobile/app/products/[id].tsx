@@ -1,10 +1,11 @@
 import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { Product as ApiProduct } from '@listacerta/shared-types';
-import { PriceWithStore, Product } from '../../src/domain/models';
+import { List, PriceWithStore, Product } from '../../src/domain/models';
 import { ApiHttpError, productApi } from '../../src/network/apiClient';
+import { listRepository } from '../../src/repositories/ListRepository';
 import { priceRepository } from '../../src/repositories/PriceRepository';
 import { productRepository } from '../../src/repositories/ProductRepository';
 
@@ -15,6 +16,11 @@ export default function ProductDetailScreen() {
   const [nameDraft, setNameDraft] = useState('');
   const [brandDraft, setBrandDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isAddToListModalVisible, setIsAddToListModalVisible] = useState(false);
+  const [availableLists, setAvailableLists] = useState<List[]>([]);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [listQuantityDraft, setListQuantityDraft] = useState('1');
+  const [newListNameDraft, setNewListNameDraft] = useState('');
 
   const productId = useMemo(() => id ?? '', [id]);
 
@@ -94,6 +100,54 @@ export default function ProductDetailScreen() {
     }
   };
 
+  const loadAvailableLists = async () => {
+    const lists = await listRepository.getAllLists();
+    setAvailableLists(lists);
+
+    if (lists.length > 0) {
+      setSelectedListId((current) => (current && lists.some((item) => item.id === current) ? current : lists[0].id));
+    } else {
+      setSelectedListId(null);
+    }
+  };
+
+  const openAddToListModal = async () => {
+    await loadAvailableLists();
+    setIsAddToListModalVisible(true);
+  };
+
+  const createListFromModal = async () => {
+    const name = newListNameDraft.trim();
+    if (!name) {
+      return;
+    }
+
+    const created = await listRepository.createList(name);
+    setNewListNameDraft('');
+    await loadAvailableLists();
+    setSelectedListId(created.id);
+  };
+
+  const addProductToList = async () => {
+    if (!product || !selectedListId) {
+      Alert.alert('No list selected', 'Pick or create a list first.');
+      return;
+    }
+
+    try {
+      const parsedQuantity = Number(listQuantityDraft.replace(',', '.'));
+      const quantity = Number.isFinite(parsedQuantity) ? Math.max(1, Math.floor(parsedQuantity)) : 1;
+      const title = product.name?.trim() || `Product ${product.barcode}`;
+
+      await listRepository.addItem(selectedListId, title, quantity);
+      setIsAddToListModalVisible(false);
+      setListQuantityDraft('1');
+      Alert.alert('Added to list', `${title} was added to your shopping list.`);
+    } catch (error) {
+      Alert.alert('Add failed', error instanceof Error ? error.message : 'Could not add to list.');
+    }
+  };
+
   const isIncomplete = !product?.name || !product?.brand;
 
   return (
@@ -135,6 +189,10 @@ export default function ProductDetailScreen() {
         <Text style={styles.primaryButtonLabel}>{isSaving ? 'Saving…' : 'Save product'}</Text>
       </Pressable>
 
+      <Pressable style={styles.addToListButton} onPress={openAddToListModal}>
+        <Text style={styles.addToListButtonLabel}>Add product to list</Text>
+      </Pressable>
+
       <View style={styles.headerRow}>
         <Text style={styles.sectionTitle}>Local prices</Text>
         <Link href={{ pathname: '/prices/add', params: { productId } }} asChild>
@@ -157,6 +215,82 @@ export default function ProductDetailScreen() {
         )}
         ListEmptyComponent={<Text style={styles.empty}>No prices yet for this product.</Text>}
       />
+
+      <Modal
+        visible={isAddToListModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsAddToListModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Add to shopping list</Text>
+
+            <Text style={styles.modalLabel}>Select list</Text>
+            <View style={styles.listPicker}>
+              {availableLists.length === 0 ? (
+                <Text style={styles.emptyInline}>No lists yet. Create one below.</Text>
+              ) : (
+                availableLists.map((list) => (
+                  <Pressable
+                    key={list.id}
+                    style={[
+                      styles.listOption,
+                      selectedListId === list.id && styles.listOptionSelected,
+                    ]}
+                    onPress={() => setSelectedListId(list.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.listOptionLabel,
+                        selectedListId === list.id && styles.listOptionLabelSelected,
+                      ]}
+                    >
+                      {list.name}
+                    </Text>
+                  </Pressable>
+                ))
+              )}
+            </View>
+
+            <Text style={styles.modalLabel}>Quantity</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="number-pad"
+              value={listQuantityDraft}
+              onChangeText={setListQuantityDraft}
+              placeholder="1"
+              placeholderTextColor="#888"
+            />
+
+            <Text style={styles.modalLabel}>Create list (optional)</Text>
+            <View style={styles.inlineRow}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                value={newListNameDraft}
+                onChangeText={setNewListNameDraft}
+                placeholder="e.g. Weekly groceries"
+                placeholderTextColor="#888"
+              />
+              <Pressable style={styles.ghostButton} onPress={createListFromModal}>
+                <Text style={styles.ghostButtonLabel}>Create</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.ghostButton}
+                onPress={() => setIsAddToListModalVisible(false)}
+              >
+                <Text style={styles.ghostButtonLabel}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalPrimaryButton} onPress={addProductToList}>
+                <Text style={styles.primaryButtonLabel}>Add</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -213,6 +347,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
   },
+  addToListButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#22c55e',
+    backgroundColor: '#f0fdf4',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  addToListButtonLabel: {
+    color: '#166534',
+    fontWeight: '700',
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -246,6 +392,82 @@ const styles = StyleSheet.create({
   },
   meta: {
     marginTop: 2,
+    color: '#6b7280',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    gap: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  modalLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    color: '#6b7280',
+  },
+  listPicker: {
+    gap: 8,
+  },
+  listOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#fff',
+  },
+  listOptionSelected: {
+    borderColor: '#22c55e',
+    backgroundColor: '#f0fdf4',
+  },
+  listOptionLabel: {
+    fontWeight: '600',
+    color: '#111827',
+  },
+  listOptionLabelSelected: {
+    color: '#166534',
+  },
+  inlineRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  modalActions: {
+    marginTop: 6,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  ghostButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#fff',
+  },
+  ghostButtonLabel: {
+    fontWeight: '700',
+    color: '#334155',
+  },
+  modalPrimaryButton: {
+    borderRadius: 10,
+    backgroundColor: '#111827',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  emptyInline: {
     color: '#6b7280',
   },
   empty: {
