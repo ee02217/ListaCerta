@@ -1,5 +1,5 @@
 import { getDatabase } from '../db/client';
-import { Store } from '../domain/models';
+import { ApiStore, Store } from '../domain/models';
 import { makeId } from '../utils/id';
 
 type StoreRow = {
@@ -49,5 +49,46 @@ export const storeRepository = {
     ]);
 
     return store;
+  },
+
+  async upsertFromApiStore(apiStore: ApiStore): Promise<Store> {
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+
+    const existingById = await db.getFirstAsync<StoreRow>('SELECT * FROM stores WHERE id = ? LIMIT 1;', [
+      apiStore.id,
+    ]);
+
+    if (existingById) {
+      await db.runAsync('UPDATE stores SET name = ?, updated_at = ? WHERE id = ?;', [
+        apiStore.name,
+        now,
+        apiStore.id,
+      ]);
+
+      return {
+        id: apiStore.id,
+        name: apiStore.name,
+        updatedAt: now,
+      };
+    }
+
+    await db.runAsync('INSERT INTO stores (id, name, updated_at) VALUES (?, ?, ?);', [
+      apiStore.id,
+      apiStore.name,
+      now,
+    ]);
+
+    return {
+      id: apiStore.id,
+      name: apiStore.name,
+      updatedAt: now,
+    };
+  },
+
+  async upsertManyFromApi(stores: ApiStore[]): Promise<void> {
+    for (const store of stores) {
+      await this.upsertFromApiStore(store);
+    }
   },
 };

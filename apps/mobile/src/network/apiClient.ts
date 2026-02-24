@@ -1,9 +1,13 @@
 import {
   PriceSchema,
+  PriceSubmissionResultSchema,
   ProductSchema,
   ProductsArraySchema,
+  StoresArraySchema,
   type Price,
+  type PriceSubmissionResult,
   type Product,
+  type Store,
 } from '@listacerta/shared-types';
 
 import { API_BASE_URL } from './config';
@@ -107,10 +111,42 @@ export const productApi = {
   },
 };
 
+export const storeApi = {
+  async listStores(): Promise<Store[]> {
+    const payload = await apiClient.request<unknown>('/stores');
+    return StoresArraySchema.parse(payload);
+  },
+};
+
 export const priceApi = {
   async fetchBestPrice(productId: string): Promise<Price> {
     const payload = await apiClient.request<unknown>(`/prices/best/${productId}`);
     return PriceSchema.parse(payload);
+  },
+
+  async submitPrice(input: {
+    productId: string;
+    storeId: string;
+    priceCents: number;
+    currency: string;
+    capturedAt: string;
+    status?: 'active' | 'flagged';
+    photoUrl?: string | null;
+  }): Promise<PriceSubmissionResult> {
+    const payload = await apiClient.request<unknown>('/prices', {
+      method: 'POST',
+      body: {
+        productId: input.productId,
+        storeId: input.storeId,
+        priceCents: input.priceCents,
+        currency: input.currency,
+        capturedAt: input.capturedAt,
+        status: input.status ?? 'active',
+        photoUrl: input.photoUrl ?? null,
+      },
+    });
+
+    return PriceSubmissionResultSchema.parse(payload);
   },
 
   // Placeholder for future sync endpoint.

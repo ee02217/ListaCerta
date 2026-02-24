@@ -57,6 +57,11 @@ export const StoresArraySchema = z.array(StoreSchema);
 export const PricesArraySchema = z.array(PriceSchema);
 export const PricesWithRelationsArraySchema = z.array(PriceWithRelationsSchema);
 
+export const PriceSubmissionResultSchema = z.object({
+  createdPrice: PriceWithRelationsSchema,
+  bestPrice: PriceWithRelationsSchema,
+});
+
 export const ApiErrorSchema = z.object({
   message: z.string(),
   code: z.string().optional(),
@@ -110,6 +115,7 @@ export type Store = z.infer<typeof StoreSchema>;
 export type Device = z.infer<typeof DeviceSchema>;
 export type Price = z.infer<typeof PriceSchema>;
 export type PriceWithRelations = z.infer<typeof PriceWithRelationsSchema>;
+export type PriceSubmissionResult = z.infer<typeof PriceSubmissionResultSchema>;
 
 export type ApiError = z.infer<typeof ApiErrorSchema>;
 export type ApiItemResponse<T> = { data: T };

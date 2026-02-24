@@ -1,4 +1,8 @@
-import { PriceWithRelationsSchema, PricesWithRelationsArraySchema } from '@listacerta/shared-types';
+import {
+  PriceSubmissionResultSchema,
+  PriceWithRelationsSchema,
+  PricesWithRelationsArraySchema,
+} from '@listacerta/shared-types';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,7 +34,7 @@ export class PricesService {
       });
     }
 
-    const price = await this.prisma.price.create({
+    const createdPrice = await this.prisma.price.create({
       data: {
         productId: body.productId,
         storeId: body.storeId,
@@ -48,7 +52,27 @@ export class PricesService {
       },
     });
 
-    return PriceWithRelationsSchema.parse(price);
+    const bestPrice = await this.prisma.price.findFirst({
+      where: {
+        productId: body.productId,
+        status: 'active',
+      },
+      orderBy: [{ priceCents: 'asc' }, { capturedAt: 'desc' }],
+      include: {
+        product: true,
+        store: true,
+        device: true,
+      },
+    });
+
+    if (!bestPrice) {
+      throw new NotFoundException(`No active prices for product: ${body.productId}`);
+    }
+
+    return PriceSubmissionResultSchema.parse({
+      createdPrice,
+      bestPrice,
+    });
   }
 
   async getBestPrice(productId: string) {
