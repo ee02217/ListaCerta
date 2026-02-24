@@ -5,8 +5,14 @@
     "scheme": "listacerta",
     "version": "0.1.0",
     "orientation": "portrait",
-    "assetBundlePatterns": ["**/*"],
-    "plugins": ["expo-router", "expo-camera"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-camera",
+      "expo-sqlite"
+    ],
     "experiments": {
       "typedRoutes": true
     },

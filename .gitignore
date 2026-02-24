@@ -11,6 +11,10 @@ npm-debug.log*
 **/coverage
 **/*.tsbuildinfo
 
+# Expo native output (managed workflow)
+apps/mobile/ios
+apps/mobile/android
+
 # Prisma
 apps/api/prisma/dev.db
 
