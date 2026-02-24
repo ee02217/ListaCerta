@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { NativeModulesProxy } from 'expo-modules-core';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -92,14 +93,17 @@ export default function AddPriceScreen() {
         throw new Error('Could not capture image for OCR.');
       }
 
-      const ocrModule = await import('expo-text-recognition').catch(() => null);
+      const hasNativeOcrModule = Boolean(
+        (NativeModulesProxy as Record<string, unknown>)?.ExpoTextRecognition,
+      );
 
-      if (!ocrModule?.getTextFromFrame) {
+      if (!hasNativeOcrModule) {
         throw new Error(
-          'OCR module is not available in this build. Rebuild the app with `npm run ios -w @listacerta/mobile -- --device`.',
+          'OCR module is not available in this installed build. Rebuild/reinstall with: npm run ios -w @listacerta/mobile -- --device',
         );
       }
 
+      const ocrModule = await import('expo-text-recognition');
       const lines = await ocrModule.getTextFromFrame(snapshot.uri, false);
       const extracted = extractEuroValue(lines);
 
