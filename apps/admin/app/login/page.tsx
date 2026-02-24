@@ -25,7 +25,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
       redirect('/login?error=invalid');
     }
 
-    const { token } = createSessionToken(username);
+    const { token } = createSessionToken();
 
     cookies().set({
       name: ADMIN_COOKIE_NAME,
