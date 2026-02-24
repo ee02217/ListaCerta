@@ -7,6 +7,7 @@ import {
   createProductSchema,
   listProductsQuerySchema,
   productIdSchema,
+  searchProductsQuerySchema,
   updateProductSchema,
 } from './products.schemas';
 import { ProductsService } from './products.service';
@@ -42,6 +43,16 @@ export class ProductsController {
     @Query(new ZodValidationPipe(listProductsQuerySchema)) query: import('./products.schemas').ListProductsQuery,
   ) {
     return this.productsService.listProducts(query);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Search products by name or brand' })
+  @ApiQuery({ name: 'q', required: true, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async searchProducts(
+    @Query(new ZodValidationPipe(searchProductsQuerySchema)) query: import('./products.schemas').SearchProductsQuery,
+  ) {
+    return this.productsService.searchProducts(query.q, query.limit);
   }
 
   @Get('barcode/:barcode')

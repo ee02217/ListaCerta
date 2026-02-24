@@ -32,6 +32,23 @@ export class ProductsService {
     return ProductsArraySchema.parse(products);
   }
 
+  async searchProducts(q: string, limit = 25) {
+    const normalized = q.trim();
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        OR: [
+          { name: { contains: normalized, mode: 'insensitive' } },
+          { brand: { contains: normalized, mode: 'insensitive' } },
+        ],
+      },
+      orderBy: [{ updatedAt: 'desc' }],
+      take: limit,
+    });
+
+    return ProductsArraySchema.parse(products);
+  }
+
   async getByBarcodeWithCacheAside(barcode: string) {
     const localProduct = await this.prisma.product.findUnique({
       where: { barcode },

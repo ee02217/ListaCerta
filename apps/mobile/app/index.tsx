@@ -65,11 +65,18 @@ export default function HomeScreen() {
         ListEmptyComponent={<Text style={styles.empty}>No lists yet. Add one above.</Text>}
       />
 
-      <Link href="/scan" asChild>
-        <Pressable style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonLabel}>Scan barcode</Text>
-        </Pressable>
-      </Link>
+      <View style={styles.actionRow}>
+        <Link href="/scan" asChild>
+          <Pressable style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonLabel}>Scan barcode</Text>
+          </Pressable>
+        </Link>
+        <Link href="/products/search" asChild>
+          <Pressable style={[styles.secondaryButton, styles.outlineButton]}>
+            <Text style={[styles.secondaryButtonLabel, styles.outlineButtonLabel]}>Search products</Text>
+          </Pressable>
+        </Link>
+      </View>
     </View>
   );
 }
@@ -137,9 +144,23 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
+    paddingHorizontal: 16,
   },
   secondaryButtonLabel: {
     color: '#fff',
     fontWeight: '700',
+  },
+  outlineButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#0ea5e9',
+  },
+  outlineButtonLabel: {
+    color: '#0ea5e9',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
   },
 });

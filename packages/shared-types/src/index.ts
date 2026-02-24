@@ -44,6 +44,7 @@ export const PriceSchema = z.object({
   submittedBy: IdSchema.nullable(),
   photoUrl: z.string().url().nullable(),
   status: PriceStatusSchema,
+  confidenceScore: z.number().min(0).max(1).default(1),
 });
 
 export const PriceWithRelationsSchema = PriceSchema.extend({

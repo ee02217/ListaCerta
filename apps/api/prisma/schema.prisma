@@ -31,6 +31,7 @@ model Product {
   prices    Price[]
 
   @@index([barcode])
+  @@index([name, brand])
 }
 
 model Store {
@@ -49,15 +50,16 @@ model Device {
 }
 
 model Price {
-  id          String     @id @default(uuid())
-  productId   String
-  storeId     String
-  priceCents  Int
-  currency    String
-  capturedAt  DateTime   @default(now())
-  submittedBy String?
-  photoUrl    String?
-  status      PriceStatus @default(active)
+  id              String      @id @default(uuid())
+  productId       String
+  storeId         String
+  priceCents      Int
+  currency        String
+  capturedAt      DateTime    @default(now())
+  submittedBy     String?
+  photoUrl        String?
+  status          PriceStatus @default(active)
+  confidenceScore Float       @default(1)
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)

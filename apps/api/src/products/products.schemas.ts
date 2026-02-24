@@ -31,6 +31,12 @@ export const updateProductSchema = z
     message: 'At least one field must be provided for update',
   });
 
+export const searchProductsQuerySchema = z.object({
+  q: z.string().trim().min(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(25),
+});
+
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
+export type SearchProductsQuery = z.infer<typeof searchProductsQuerySchema>;
 export type CreateProductBody = z.infer<typeof createProductSchema>;
 export type UpdateProductBody = z.infer<typeof updateProductSchema>;
