@@ -55,6 +55,7 @@ export class ProductsService {
         category: offProduct.category,
         imageUrl: offProduct.imageUrl,
         source: ProductSource.OFF,
+        cachedAt: new Date(),
       },
       create: {
         barcode: offProduct.barcode,
@@ -63,6 +64,7 @@ export class ProductsService {
         category: offProduct.category,
         imageUrl: offProduct.imageUrl,
         source: ProductSource.OFF,
+        cachedAt: new Date(),
       },
     });
 

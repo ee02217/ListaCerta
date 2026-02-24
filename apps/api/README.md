@@ -38,7 +38,8 @@ npm run dev -w @listacerta/api
 ## Endpoints
 
 - `GET /products?q=&limit=`
-- `GET /products/:barcode`
+- `GET /products/barcode/:barcode`
+- `GET /products/:barcode` (legacy alias)
 - `POST /products`
 - `PATCH /products/:id`
 - `POST /prices`

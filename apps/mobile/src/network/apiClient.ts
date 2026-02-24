@@ -41,7 +41,7 @@ export const apiClient = new ApiClient(API_BASE_URL);
 
 export const productApi = {
   async fetchByBarcode(barcode: string): Promise<Product> {
-    const payload = await apiClient.request<unknown>(`/products/${encodeURIComponent(barcode)}`);
+    const payload = await apiClient.request<unknown>(`/products/barcode/${encodeURIComponent(barcode)}`);
     return ProductSchema.parse(payload);
   },
 

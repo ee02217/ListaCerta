@@ -1,8 +1,9 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { productApi } from '../src/network/apiClient';
 import { productRepository } from '../src/repositories/ProductRepository';
 import { useUiStore } from '../src/state/uiStore';
 
@@ -46,8 +47,19 @@ export default function ScanBarcodeScreen() {
                 try {
                   setIsHandlingScan(true);
                   setLastScannedBarcode(data);
-                  const product = await productRepository.ensureByBarcode(data);
+
+                  // Always go through backend (mobile never calls OpenFoodFacts directly).
+                  const remoteProduct = await productApi.fetchByBarcode(data);
+                  const product = await productRepository.upsertFromApiProduct(remoteProduct);
+
                   router.replace({ pathname: '/products/[id]', params: { id: product.id } });
+                } catch (error) {
+                  Alert.alert(
+                    'Product lookup failed',
+                    error instanceof Error
+                      ? error.message
+                      : 'Could not retrieve product details from backend.',
+                  );
                 } finally {
                   setTimeout(() => setIsHandlingScan(false), 750);
                 }

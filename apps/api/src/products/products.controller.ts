@@ -44,10 +44,20 @@ export class ProductsController {
     return this.productsService.listProducts(query);
   }
 
-  @Get(':barcode')
+  @Get('barcode/:barcode')
   @ApiOperation({ summary: 'Get product by barcode (cache-aside with OpenFoodFacts)' })
   @ApiParam({ name: 'barcode', type: String })
   async getByBarcode(
+    @Param('barcode', new ZodValidationPipe(barcodeSchema)) barcode: string,
+  ) {
+    return this.productsService.getByBarcodeWithCacheAside(barcode);
+  }
+
+  // Legacy alias kept for backward compatibility.
+  @Get(':barcode')
+  @ApiOperation({ summary: 'Get product by barcode (legacy route alias)' })
+  @ApiParam({ name: 'barcode', type: String })
+  async getByBarcodeLegacy(
     @Param('barcode', new ZodValidationPipe(barcodeSchema)) barcode: string,
   ) {
     return this.productsService.getByBarcodeWithCacheAside(barcode);

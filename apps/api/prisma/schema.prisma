@@ -25,6 +25,7 @@ model Product {
   category  String?
   imageUrl  String?
   source    ProductSource @default(manual)
+  cachedAt  DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   prices    Price[]

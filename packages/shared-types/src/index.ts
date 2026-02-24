@@ -18,6 +18,7 @@ export const ProductSchema = z.object({
   category: z.string().trim().min(1).nullable(),
   imageUrl: z.string().url().nullable(),
   source: ProductSourceSchema,
+  cachedAt: IsoDateStringSchema.nullable(),
   createdAt: IsoDateStringSchema,
   updatedAt: IsoDateStringSchema,
 });

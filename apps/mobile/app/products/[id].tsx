@@ -49,10 +49,20 @@ export default function ProductDetailScreen() {
     await load();
   };
 
+  const isIncomplete = !product?.name || !product?.brand;
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Barcode</Text>
       <Text style={styles.value}>{product?.barcode ?? 'Unknown'}</Text>
+
+      {isIncomplete ? (
+        <View style={styles.warningBox}>
+          <Text style={styles.warningText}>
+            Product data is incomplete. Please review and fill in missing fields.
+          </Text>
+        </View>
+      ) : null}
 
       <Text style={styles.label}>Name</Text>
       <TextInput
@@ -127,6 +137,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  warningBox: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fcd34d',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+  },
+  warningText: {
+    color: '#92400e',
+    fontSize: 13,
+    fontWeight: '600',
   },
   primaryButton: {
     backgroundColor: '#111827',

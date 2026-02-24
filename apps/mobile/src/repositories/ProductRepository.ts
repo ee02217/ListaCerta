@@ -1,5 +1,5 @@
 import { getDatabase } from '../db/client';
-import { Product } from '../domain/models';
+import { ApiProduct, Product } from '../domain/models';
 import { makeId } from '../utils/id';
 
 type ProductRow = {
@@ -32,6 +32,40 @@ export const productRepository = {
       [barcode],
     );
     return row ? toProduct(row) : null;
+  },
+
+  async upsertFromApiProduct(apiProduct: ApiProduct): Promise<Product> {
+    const db = await getDatabase();
+    const existing = await this.getByBarcode(apiProduct.barcode);
+
+    if (existing) {
+      await db.runAsync(
+        'UPDATE products SET name = ?, brand = ?, updated_at = ? WHERE id = ?;',
+        [apiProduct.name, apiProduct.brand ?? null, apiProduct.updatedAt, existing.id],
+      );
+
+      return {
+        ...existing,
+        name: apiProduct.name,
+        brand: apiProduct.brand,
+        updatedAt: apiProduct.updatedAt,
+      };
+    }
+
+    const product: Product = {
+      id: apiProduct.id,
+      barcode: apiProduct.barcode,
+      name: apiProduct.name,
+      brand: apiProduct.brand,
+      updatedAt: apiProduct.updatedAt,
+    };
+
+    await db.runAsync(
+      'INSERT INTO products (id, barcode, name, brand, updated_at) VALUES (?, ?, ?, ?, ?);',
+      [product.id, product.barcode, product.name, product.brand ?? null, product.updatedAt],
+    );
+
+    return product;
   },
 
   async ensureByBarcode(barcode: string): Promise<Product> {
