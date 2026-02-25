@@ -49,6 +49,7 @@ npm run dev -w @listacerta/api
 - `GET /prices/history/:productId` (active history sorted by date desc)
 - `GET /stores`
 - `POST /stores`
+- `GET /devices?limit=`
 - `GET /health`
 
 ## OpenFoodFacts integration (cache-aside)

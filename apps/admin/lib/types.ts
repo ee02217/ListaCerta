@@ -21,6 +21,13 @@ export type Device = {
   createdAt: string;
 };
 
+export type DeviceUsage = {
+  id: string;
+  createdAt: string;
+  submissionsCount: number;
+  lastUsedAt: string | null;
+};
+
 export type ModerationPrice = {
   id: string;
   productId: string;

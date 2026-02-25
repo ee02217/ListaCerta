@@ -47,4 +47,5 @@ Admin UI: `http://localhost:3002`
 - `/products`
 - `/stores`
 - `/prices`
+- `/devices`
 - `/login`
