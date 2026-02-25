@@ -1,6 +1,6 @@
 import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type {
   PriceAggregation,
@@ -186,7 +186,8 @@ export default function ProductDetailScreen() {
   const isIncomplete = !product?.name || !product?.brand;
 
   return (
-    <View style={styles.container}>
+    <>
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
       <Text style={styles.label}>Barcode</Text>
       <Text style={styles.value}>{product?.barcode ?? 'Unknown'}</Text>
 
@@ -292,6 +293,7 @@ export default function ProductDetailScreen() {
           <Text style={styles.empty}>No prices yet for this product.</Text>
         ) : null}
       </View>
+      </ScrollView>
 
       <Modal
         visible={isAddToListModalVisible}
@@ -368,13 +370,15 @@ export default function ProductDetailScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scrollContainer: {
     flex: 1,
+  },
+  container: {
     backgroundColor: '#f7f7f7',
     padding: 16,
     gap: 10,
