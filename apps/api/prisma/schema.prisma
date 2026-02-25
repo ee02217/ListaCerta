@@ -60,6 +60,7 @@ model Price {
   photoUrl        String?
   status          PriceStatus @default(active)
   confidenceScore Float       @default(1)
+  idempotencyKey  String?     @unique
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)

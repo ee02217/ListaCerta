@@ -152,6 +152,7 @@ export const priceApi = {
     capturedAt: string;
     status?: 'active' | 'flagged';
     photoUrl?: string | null;
+    idempotencyKey?: string;
   }): Promise<PriceSubmissionResult> {
     const payload = await apiClient.request<unknown>('/prices', {
       method: 'POST',
@@ -163,6 +164,7 @@ export const priceApi = {
         capturedAt: input.capturedAt,
         status: input.status ?? 'active',
         photoUrl: input.photoUrl ?? null,
+        idempotencyKey: input.idempotencyKey ?? undefined,
       },
     });
 

@@ -1,10 +1,11 @@
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, Text, View } from 'react-native';
 
 import { getDatabase } from '../src/db/client';
 import { runMigrations } from '../src/db/migrations';
 import { seedDatabaseIfEmpty } from '../src/db/seed';
+import { syncPendingPriceSubmissions } from '../src/services/offlinePriceSync';
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -24,6 +25,44 @@ export default function RootLayout() {
 
     void init();
   }, []);
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const triggerSync = async () => {
+      if (cancelled) {
+        return;
+      }
+
+      try {
+        await syncPendingPriceSubmissions();
+      } catch {
+        // Silent retry loop; pending queue remains for next attempt.
+      }
+    };
+
+    void triggerSync();
+
+    const interval = setInterval(() => {
+      void triggerSync();
+    }, 15000);
+
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void triggerSync();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      appStateSubscription.remove();
+    };
+  }, [ready]);
 
   if (error) {
     return (

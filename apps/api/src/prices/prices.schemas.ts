@@ -13,6 +13,7 @@ export const createPriceSchema = z.object({
   submittedBy: z.string().trim().min(1).nullable().optional(),
   photoUrl: z.string().url().nullable().optional(),
   status: PriceStatusSchema.optional().default('active'),
+  idempotencyKey: z.string().trim().min(8).max(128).optional(),
 });
 
 export const listModerationQuerySchema = z.object({

@@ -20,6 +20,7 @@ class CreatePriceBodyDto {
   submittedBy?: string | null;
   photoUrl?: string | null;
   status?: 'active' | 'flagged';
+  idempotencyKey?: string;
 }
 
 class ModeratePriceBodyDto {

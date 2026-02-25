@@ -5,9 +5,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { Store } from '@listacerta/shared-types';
-import { priceApi, storeApi } from '../../src/network/apiClient';
+import { ApiHttpError, priceApi, storeApi } from '../../src/network/apiClient';
 import { priceRepository } from '../../src/repositories/PriceRepository';
 import { storeRepository } from '../../src/repositories/StoreRepository';
+import { syncPendingPriceSubmissions } from '../../src/services/offlinePriceSync';
 
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -91,6 +92,9 @@ const extractEuroValue = (textBlocks: string[]): string | null => {
   candidates.sort((a, b) => b.score - a.score || a.value - b.value);
   return candidates[0].value.toFixed(2);
 };
+
+const makeIdempotencyKey = (productId: string, storeId: string) =>
+  `price_${productId}_${storeId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 export default function AddPriceScreen() {
   const { productId } = useLocalSearchParams<{ productId: string }>();
@@ -247,19 +251,26 @@ export default function AddPriceScreen() {
       return;
     }
 
+    const normalizedCurrency = currency.trim().toUpperCase() || 'EUR';
+    const priceCents = Math.round(parsedAmount * 100);
+    const capturedAt = new Date().toISOString();
+    const idempotencyKey = makeIdempotencyKey(productId, selectedStoreId);
+
     setSaving(true);
 
     try {
       const response = await priceApi.submitPrice({
         productId,
         storeId: selectedStoreId,
-        priceCents: Math.round(parsedAmount * 100),
-        currency: currency.trim().toUpperCase() || 'EUR',
-        capturedAt: new Date().toISOString(),
+        priceCents,
+        currency: normalizedCurrency,
+        capturedAt,
+        idempotencyKey,
       });
 
       await priceRepository.upsertFromApiPrice(response.createdPrice);
       await priceRepository.upsertFromApiPrice(response.bestPrice);
+      await syncPendingPriceSubmissions();
 
       const moderationNote =
         response.createdPrice.status === 'flagged'
@@ -273,6 +284,42 @@ export default function AddPriceScreen() {
 
       router.replace({ pathname: '/products/[id]', params: { id: productId } });
     } catch (error) {
+      const shouldQueueOffline = !(error instanceof ApiHttpError && error.status >= 400 && error.status < 500);
+
+      if (shouldQueueOffline) {
+        try {
+          await priceRepository.queuePendingSubmission({
+            idempotencyKey,
+            productId,
+            storeId: selectedStoreId,
+            priceCents,
+            currency: normalizedCurrency,
+            capturedAt,
+          });
+
+          await priceRepository.addPrice({
+            productId,
+            storeId: selectedStoreId,
+            amountCents: priceCents,
+            currency: normalizedCurrency,
+            observedAt: capturedAt,
+          });
+
+          Alert.alert(
+            'Saved offline',
+            'No connection right now. Price was saved locally and will sync automatically when online.',
+          );
+          router.replace({ pathname: '/products/[id]', params: { id: productId } });
+          return;
+        } catch (queueError) {
+          Alert.alert(
+            'Could not queue offline',
+            queueError instanceof Error ? queueError.message : 'Unknown queue error',
+          );
+          return;
+        }
+      }
+
       Alert.alert('Could not save price', error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setSaving(false);

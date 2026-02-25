@@ -59,6 +59,24 @@ const MIGRATIONS: Migration[] = [
       'CREATE INDEX IF NOT EXISTS idx_prices_status ON prices(status);',
     ],
   },
+  {
+    version: 3,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS pending_price_submissions (
+        idempotency_key TEXT PRIMARY KEY NOT NULL,
+        product_id TEXT NOT NULL,
+        store_id TEXT NOT NULL,
+        price_cents INTEGER NOT NULL,
+        currency TEXT NOT NULL,
+        captured_at TEXT NOT NULL,
+        photo_url TEXT,
+        created_at TEXT NOT NULL,
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT
+      );`,
+      'CREATE INDEX IF NOT EXISTS idx_pending_price_created_at ON pending_price_submissions(created_at);',
+    ],
+  },
 ];
 
 export const runMigrations = async (db: SQLiteDatabase): Promise<void> => {

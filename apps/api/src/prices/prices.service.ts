@@ -5,6 +5,7 @@ import {
   PricesWithRelationsArraySchema,
 } from '@listacerta/shared-types';
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePriceBody, ListModerationQuery, ModeratePriceBody } from './prices.schemas';
@@ -13,7 +14,48 @@ import { CreatePriceBody, ListModerationQuery, ModeratePriceBody } from './price
 export class PricesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async resolveBestActivePrice(productId: string) {
+    const bestPrice = await this.prisma.price.findFirst({
+      where: {
+        productId,
+        status: 'active',
+      },
+      orderBy: [{ priceCents: 'asc' }, { capturedAt: 'desc' }],
+      include: {
+        product: true,
+        store: true,
+        device: true,
+      },
+    });
+
+    if (!bestPrice) {
+      throw new NotFoundException(`No active prices for product: ${productId}`);
+    }
+
+    return bestPrice;
+  }
+
   async createPrice(body: CreatePriceBody) {
+    if (body.idempotencyKey) {
+      const existing = await this.prisma.price.findUnique({
+        where: { idempotencyKey: body.idempotencyKey },
+        include: {
+          product: true,
+          store: true,
+          device: true,
+        },
+      });
+
+      if (existing) {
+        const bestPrice = await this.resolveBestActivePrice(existing.productId);
+
+        return PriceSubmissionResultSchema.parse({
+          createdPrice: existing,
+          bestPrice,
+        });
+      }
+    }
+
     const [product, store, aggregate] = await Promise.all([
       this.prisma.product.findUnique({ where: { id: body.productId } }),
       this.prisma.store.findUnique({ where: { id: body.storeId } }),
@@ -50,41 +92,57 @@ export class PricesService {
     const confidenceScore = Number(Math.max(0, 1 - Math.min(1, deviationRatio)).toFixed(3));
     const finalStatus = autoFlagged ? 'flagged' : body.status;
 
-    const createdPrice = await this.prisma.price.create({
-      data: {
-        productId: body.productId,
-        storeId: body.storeId,
-        priceCents: body.priceCents,
-        currency: body.currency,
-        capturedAt: body.capturedAt ? new Date(body.capturedAt) : new Date(),
-        submittedBy: body.submittedBy ?? null,
-        photoUrl: body.photoUrl ?? null,
-        status: finalStatus,
-        confidenceScore,
-      },
-      include: {
-        product: true,
-        store: true,
-        device: true,
-      },
-    });
+    let createdPrice;
 
-    const bestPrice = await this.prisma.price.findFirst({
-      where: {
-        productId: body.productId,
-        status: 'active',
-      },
-      orderBy: [{ priceCents: 'asc' }, { capturedAt: 'desc' }],
-      include: {
-        product: true,
-        store: true,
-        device: true,
-      },
-    });
+    try {
+      createdPrice = await this.prisma.price.create({
+        data: {
+          productId: body.productId,
+          storeId: body.storeId,
+          priceCents: body.priceCents,
+          currency: body.currency,
+          capturedAt: body.capturedAt ? new Date(body.capturedAt) : new Date(),
+          submittedBy: body.submittedBy ?? null,
+          photoUrl: body.photoUrl ?? null,
+          status: finalStatus,
+          confidenceScore,
+          idempotencyKey: body.idempotencyKey ?? null,
+        },
+        include: {
+          product: true,
+          store: true,
+          device: true,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        body.idempotencyKey
+      ) {
+        const existing = await this.prisma.price.findUnique({
+          where: { idempotencyKey: body.idempotencyKey },
+          include: {
+            product: true,
+            store: true,
+            device: true,
+          },
+        });
 
-    if (!bestPrice) {
-      throw new NotFoundException(`No active prices for product: ${body.productId}`);
+        if (existing) {
+          const bestPrice = await this.resolveBestActivePrice(existing.productId);
+
+          return PriceSubmissionResultSchema.parse({
+            createdPrice: existing,
+            bestPrice,
+          });
+        }
+      }
+
+      throw error;
     }
+
+    const bestPrice = await this.resolveBestActivePrice(body.productId);
 
     return PriceSubmissionResultSchema.parse({
       createdPrice,
@@ -94,10 +152,6 @@ export class PricesService {
 
   async getBestPrice(productId: string) {
     const history = await this.getPriceHistory(productId);
-
-    if (history.length === 0) {
-      throw new NotFoundException(`No active prices for product: ${productId}`);
-    }
 
     if (history.length === 0) {
       throw new NotFoundException(`No active prices for product: ${productId}`);
