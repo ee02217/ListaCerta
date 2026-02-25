@@ -6,6 +6,7 @@ import { getDatabase } from '../src/db/client';
 import { runMigrations } from '../src/db/migrations';
 import { seedDatabaseIfEmpty } from '../src/db/seed';
 import { syncPendingPriceSubmissions } from '../src/services/offlinePriceSync';
+import { syncStoresToLocal } from '../src/services/storeSync';
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -36,6 +37,12 @@ export default function RootLayout() {
     const triggerSync = async () => {
       if (cancelled) {
         return;
+      }
+
+      try {
+        await syncStoresToLocal();
+      } catch {
+        // Ignore transient network errors. We'll retry on interval/foreground.
       }
 
       try {

@@ -178,6 +178,11 @@ export default function AddPriceScreen() {
     void loadStores();
   }, []);
 
+  const openStoreModal = async () => {
+    await refreshStores(selectedStoreId ?? undefined);
+    setIsStoreModalOpen(true);
+  };
+
   const runPriceOcr = async () => {
     if (!cameraPermission?.granted) {
       const result = await requestCameraPermission();
@@ -360,7 +365,7 @@ export default function AddPriceScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Store</Text>
-      <Pressable style={styles.selector} onPress={() => setIsStoreModalOpen(true)}>
+      <Pressable style={styles.selector} onPress={() => void openStoreModal()}>
         <Text style={styles.selectorText}>{selectedStore?.name ?? 'Select store'}</Text>
       </Pressable>
 
@@ -402,7 +407,14 @@ export default function AddPriceScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Choose store</Text>
             {stores.length === 0 ? (
-              <Text style={styles.emptyHint}>No stores available. Add stores in admin portal first.</Text>
+              <View style={styles.emptyStateBox}>
+                <Text style={styles.emptyHint}>
+                  No stores available locally. Connect to internet and tap sync stores.
+                </Text>
+                <Pressable style={styles.secondaryActionButton} onPress={() => void refreshStores()}>
+                  <Text style={styles.secondaryActionButtonLabel}>Sync stores</Text>
+                </Pressable>
+              </View>
             ) : (
               stores.map((store) => (
                 <Pressable
@@ -586,6 +598,9 @@ const styles = StyleSheet.create({
   },
   emptyHint: {
     color: '#6b7280',
+  },
+  emptyStateBox: {
+    gap: 10,
   },
   inlineCreateSection: {
     marginTop: 6,
