@@ -74,12 +74,41 @@ export const listRepository = {
 
   async addItem(listId: string, title: string, quantity = 1): Promise<ListItem> {
     const db = await getDatabase();
+    const normalizedTitle = title.trim();
+    const safeQuantity = Math.max(1, Math.floor(quantity));
+
+    if (!normalizedTitle) {
+      throw new Error('Item title cannot be empty.');
+    }
+
+    const existing = await db.getFirstAsync<ListItemRow>(
+      'SELECT * FROM list_items WHERE list_id = ? AND lower(title) = lower(?) LIMIT 1;',
+      [listId, normalizedTitle],
+    );
+
+    if (existing) {
+      const nextQuantity = Math.max(1, Math.floor((existing.quantity ?? 0) + safeQuantity));
+      await db.runAsync('UPDATE list_items SET quantity = ?, done = 0 WHERE id = ?;', [
+        nextQuantity,
+        existing.id,
+      ]);
+
+      return {
+        id: existing.id,
+        listId: existing.list_id,
+        title: existing.title,
+        done: false,
+        quantity: nextQuantity,
+        createdAt: existing.created_at,
+      };
+    }
+
     const item: ListItem = {
       id: makeId('item'),
       listId,
-      title,
+      title: normalizedTitle,
       done: false,
-      quantity,
+      quantity: safeQuantity,
       createdAt: new Date().toISOString(),
     };
 
@@ -106,5 +135,35 @@ export const listRepository = {
     const safeQuantity = Math.max(1, Math.floor(quantity));
 
     await db.runAsync('UPDATE list_items SET quantity = ? WHERE id = ?;', [safeQuantity, itemId]);
+  },
+
+  async updateListName(listId: string, name: string): Promise<void> {
+    const normalizedName = name.trim();
+
+    if (!normalizedName) {
+      throw new Error('List name cannot be empty.');
+    }
+
+    const db = await getDatabase();
+    await db.runAsync('UPDATE lists SET name = ? WHERE id = ?;', [normalizedName, listId]);
+    console.info(`[db] UPDATE lists SET name = ? WHERE id = ?; [${listId}]`);
+  },
+
+  async deleteList(listId: string): Promise<void> {
+    const db = await getDatabase();
+
+    await db.execAsync('BEGIN;');
+
+    try {
+      // Keep explicit child delete for robustness in case FK pragma is off.
+      await db.runAsync('DELETE FROM list_items WHERE list_id = ?;', [listId]);
+      await db.runAsync('DELETE FROM lists WHERE id = ?;', [listId]);
+      await db.execAsync('COMMIT;');
+      console.info(`[db] DELETE FROM list_items WHERE list_id = ?; [${listId}]`);
+      console.info(`[db] DELETE FROM lists WHERE id = ?; [${listId}]`);
+    } catch (error) {
+      await db.execAsync('ROLLBACK;');
+      throw error;
+    }
   },
 };
