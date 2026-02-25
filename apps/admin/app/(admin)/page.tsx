@@ -1,14 +1,13 @@
 import Link from 'next/link';
 
 import { apiFetch } from '../../lib/api';
-import { DeviceUsage, ModerationPrice, Product, Store } from '../../lib/types';
+import { AnalyticsSummary, DeviceUsage, ModerationPrice } from '../../lib/types';
 
 async function getDashboardData() {
   try {
-    const [products, stores, prices, devices] = await Promise.all([
-      apiFetch<Product[]>('/products?limit=50'),
-      apiFetch<Store[]>('/stores'),
-      apiFetch<ModerationPrice[]>('/prices/moderation?limit=100'),
+    const [analytics, prices, devices] = await Promise.all([
+      apiFetch<AnalyticsSummary>('/analytics/summary?limit=5'),
+      apiFetch<ModerationPrice[]>('/prices/moderation?limit=200'),
       apiFetch<DeviceUsage[]>('/devices?limit=500'),
     ]);
 
@@ -19,9 +18,7 @@ async function getDashboardData() {
       .sort((a, b) => (a! < b! ? 1 : -1))[0] ?? null;
 
     return {
-      productCount: products.length,
-      storesCount: stores.length,
-      pricesCount: prices.length,
+      analytics,
       flaggedCount,
       devicesCount: devices.length,
       latestDeviceUsage,
@@ -29,9 +26,12 @@ async function getDashboardData() {
     };
   } catch (error) {
     return {
-      productCount: 0,
-      storesCount: 0,
-      pricesCount: 0,
+      analytics: {
+        totals: { products: 0, prices: 0 },
+        mostActiveStores: [],
+        mostScannedProducts: [],
+        generatedAt: new Date().toISOString(),
+      },
       flaggedCount: 0,
       devicesCount: 0,
       latestDeviceUsage: null,
@@ -48,7 +48,7 @@ export default async function DashboardPage() {
       <header>
         <h2 className="text-2xl font-semibold">Dashboard</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Quick overview of products, stores, and price moderation activity.
+          Summary metrics and usage trends for ListaCerta.
         </p>
       </header>
 
@@ -58,16 +58,12 @@ export default async function DashboardPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <article className="card">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Products indexed</p>
-          <p className="mt-2 text-3xl font-semibold">{data.productCount}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Total products</p>
+          <p className="mt-2 text-3xl font-semibold">{data.analytics.totals.products}</p>
         </article>
         <article className="card">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Stores</p>
-          <p className="mt-2 text-3xl font-semibold">{data.storesCount}</p>
-        </article>
-        <article className="card">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Prices captured</p>
-          <p className="mt-2 text-3xl font-semibold">{data.pricesCount}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Total prices</p>
+          <p className="mt-2 text-3xl font-semibold">{data.analytics.totals.prices}</p>
         </article>
         <article className="card">
           <p className="text-xs uppercase tracking-wide text-slate-500">Flagged prices</p>
@@ -76,10 +72,47 @@ export default async function DashboardPage() {
         <article className="card">
           <p className="text-xs uppercase tracking-wide text-slate-500">Registered devices</p>
           <p className="mt-2 text-3xl font-semibold">{data.devicesCount}</p>
-          <p className="mt-2 text-xs text-slate-500">
-            Last used:{' '}
+        </article>
+        <article className="card">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Last device usage</p>
+          <p className="mt-2 text-sm font-semibold">
             {data.latestDeviceUsage ? new Date(data.latestDeviceUsage).toLocaleString() : 'No submissions'}
           </p>
+        </article>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <article className="card">
+          <h3 className="text-base font-semibold">Most active stores</h3>
+          <div className="mt-3 space-y-2">
+            {data.analytics.mostActiveStores.length === 0 ? (
+              <p className="text-sm text-slate-500">No store activity yet.</p>
+            ) : (
+              data.analytics.mostActiveStores.map((store) => (
+                <div key={store.storeId} className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
+                  <span className="text-sm font-medium text-slate-800">{store.name}</span>
+                  <span className="text-xs font-semibold text-slate-600">{store.submissionsCount} submissions</span>
+                </div>
+              ))
+            )}
+          </div>
+        </article>
+
+        <article className="card">
+          <h3 className="text-base font-semibold">Most scanned products</h3>
+          <div className="mt-3 space-y-2">
+            {data.analytics.mostScannedProducts.length === 0 ? (
+              <p className="text-sm text-slate-500">No product scan activity yet.</p>
+            ) : (
+              data.analytics.mostScannedProducts.map((product) => (
+                <div key={product.productId} className="rounded-md border border-slate-200 px-3 py-2">
+                  <p className="text-sm font-medium text-slate-800">{product.name}</p>
+                  <p className="text-xs text-slate-500">{product.barcode}</p>
+                  <p className="text-xs font-semibold text-slate-600">{product.scansCount} scans</p>
+                </div>
+              ))
+            )}
+          </div>
         </article>
       </section>
 

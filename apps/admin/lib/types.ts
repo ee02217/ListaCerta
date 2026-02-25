@@ -6,6 +6,8 @@ export type Product = {
   category: string | null;
   imageUrl: string | null;
   source: 'OFF' | 'manual';
+  cachedAt: string | null;
+  isVerified: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -42,4 +44,23 @@ export type ModerationPrice = {
   product: Product;
   store: Store;
   device: Device | null;
+};
+
+export type AnalyticsSummary = {
+  totals: {
+    products: number;
+    prices: number;
+  };
+  mostActiveStores: Array<{
+    storeId: string;
+    name: string;
+    submissionsCount: number;
+  }>;
+  mostScannedProducts: Array<{
+    productId: string;
+    name: string;
+    barcode: string;
+    scansCount: number;
+  }>;
+  generatedAt: string;
 };

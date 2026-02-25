@@ -1,37 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { apiFetch } from '../../../lib/api';
 import { Product } from '../../../lib/types';
-
-type EditableProduct = {
-  id: string;
-  barcode: string;
-  name: string;
-  brand: string;
-  category: string;
-  imageUrl: string;
-  source: 'OFF' | 'manual';
-};
-
-const toEditable = (product: Product): EditableProduct => ({
-  id: product.id,
-  barcode: product.barcode,
-  name: product.name,
-  brand: product.brand ?? '',
-  category: product.category ?? '',
-  imageUrl: product.imageUrl ?? '',
-  source: product.source,
-});
 
 export default function ProductsPage() {
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState<EditableProduct | null>(null);
 
   const canSearch = useMemo(() => query.trim().length > 0, [query]);
 
@@ -59,63 +38,20 @@ export default function ProductsPage() {
     await loadProducts(query);
   };
 
-  const saveEdit = async () => {
-    if (!editing) {
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      await apiFetch<Product>(`/products/${editing.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          barcode: editing.barcode,
-          name: editing.name,
-          brand: editing.brand || null,
-          category: editing.category || null,
-          imageUrl: editing.imageUrl || null,
-          source: editing.source,
-        }),
-      });
-
-      setProducts((current) =>
-        current.map((item) =>
-          item.id === editing.id
-            ? {
-                ...item,
-                barcode: editing.barcode,
-                name: editing.name,
-                brand: editing.brand || null,
-                category: editing.category || null,
-                imageUrl: editing.imageUrl || null,
-                source: editing.source,
-                updatedAt: new Date().toISOString(),
-              }
-            : item,
-        ),
-      );
-
-      setEditing(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update product');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <div className="space-y-4">
       <header>
         <h2 className="text-2xl font-semibold">Products</h2>
-        <p className="mt-1 text-sm text-slate-600">Search, review and edit product catalog records.</p>
+        <p className="mt-1 text-sm text-slate-600">
+          Search catalog products and open the edit page to override OFF data.
+        </p>
       </header>
 
       <form onSubmit={onSearch} className="card flex flex-col gap-3 md:flex-row">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by barcode or name"
+          placeholder="Search by barcode, name or brand"
         />
         <button className="bg-teal-700 text-white hover:bg-teal-800 disabled:opacity-50" disabled={!canSearch && loading}>
           Search
@@ -141,8 +77,8 @@ export default function ProductsPage() {
               <th className="px-2 py-2 font-medium">Barcode</th>
               <th className="px-2 py-2 font-medium">Name</th>
               <th className="px-2 py-2 font-medium">Brand</th>
-              <th className="px-2 py-2 font-medium">Category</th>
               <th className="px-2 py-2 font-medium">Source</th>
+              <th className="px-2 py-2 font-medium">Verified</th>
               <th className="px-2 py-2 font-medium">Actions</th>
             </tr>
           </thead>
@@ -165,20 +101,29 @@ export default function ProductsPage() {
                   <td className="px-2 py-3 font-mono text-xs">{product.barcode}</td>
                   <td className="px-2 py-3">{product.name}</td>
                   <td className="px-2 py-3">{product.brand ?? '—'}</td>
-                  <td className="px-2 py-3">{product.category ?? '—'}</td>
                   <td className="px-2 py-3">{product.source}</td>
                   <td className="px-2 py-3">
+                    <span
+                      className={
+                        product.isVerified
+                          ? 'rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700'
+                          : 'rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600'
+                      }
+                    >
+                      {product.isVerified ? 'Verified' : 'Unverified'}
+                    </span>
+                  </td>
+                  <td className="px-2 py-3">
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-                        onClick={() => setEditing(toEditable(product))}
+                      <Link
+                        href={`/products/${product.id}`}
+                        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
                       >
                         Edit
-                      </button>
+                      </Link>
                       <button
                         type="button"
-                        className="border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100"
                         onClick={() => alert('Merge duplicates is a placeholder for now.')}
                       >
                         Merge duplicates
@@ -191,67 +136,6 @@ export default function ProductsPage() {
           </tbody>
         </table>
       </section>
-
-      {editing ? (
-        <section className="card space-y-3">
-          <h3 className="text-base font-semibold">Edit product</h3>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Barcode</label>
-              <input
-                value={editing.barcode}
-                onChange={(event) => setEditing({ ...editing, barcode: event.target.value })}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Name</label>
-              <input
-                value={editing.name}
-                onChange={(event) => setEditing({ ...editing, name: event.target.value })}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Brand</label>
-              <input
-                value={editing.brand}
-                onChange={(event) => setEditing({ ...editing, brand: event.target.value })}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Category</label>
-              <input
-                value={editing.category}
-                onChange={(event) => setEditing({ ...editing, category: event.target.value })}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Image URL</label>
-              <input
-                value={editing.imageUrl}
-                onChange={(event) => setEditing({ ...editing, imageUrl: event.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="bg-teal-700 text-white hover:bg-teal-800 disabled:opacity-50"
-              disabled={saving}
-              onClick={saveEdit}
-            >
-              {saving ? 'Saving…' : 'Save changes'}
-            </button>
-            <button
-              type="button"
-              className="border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-              onClick={() => setEditing(null)}
-            >
-              Cancel
-            </button>
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }

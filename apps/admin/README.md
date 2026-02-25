@@ -45,6 +45,7 @@ Admin UI: `http://localhost:3002`
 
 - `/` dashboard
 - `/products`
+- `/products/[id]` (edit overrides + mark verified)
 - `/stores`
 - `/prices`
 - `/devices`

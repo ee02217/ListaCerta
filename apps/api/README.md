@@ -50,6 +50,7 @@ npm run dev -w @listacerta/api
 - `GET /stores`
 - `POST /stores`
 - `GET /devices?limit=`
+- `GET /analytics/summary?limit=`
 - `GET /health`
 
 ## OpenFoodFacts integration (cache-aside)

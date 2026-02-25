@@ -18,17 +18,18 @@ enum PriceStatus {
 }
 
 model Product {
-  id        String        @id @default(uuid())
-  barcode   String        @unique
-  name      String
-  brand     String?
-  category  String?
-  imageUrl  String?
-  source    ProductSource @default(manual)
-  cachedAt  DateTime?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  prices    Price[]
+  id         String        @id @default(uuid())
+  barcode    String        @unique
+  name       String
+  brand      String?
+  category   String?
+  imageUrl   String?
+  source     ProductSource @default(manual)
+  cachedAt   DateTime?
+  isVerified Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  prices     Price[]
 
   @@index([barcode])
   @@index([name, brand])
@@ -69,4 +70,5 @@ model Price {
   @@index([productId, status, priceCents])
   @@index([storeId])
   @@index([capturedAt])
+  @@index([status])
 }

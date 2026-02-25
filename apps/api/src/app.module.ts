@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 
+import { AnalyticsController } from './analytics/analytics.controller';
+import { AnalyticsService } from './analytics/analytics.service';
 import { DevicesController } from './devices/devices.controller';
 import { DevicesService } from './devices/devices.service';
 import { HealthController } from './health.controller';
@@ -14,7 +16,21 @@ import { StoresService } from './stores/stores.service';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [HealthController, ProductsController, PricesController, StoresController, DevicesController],
-  providers: [ProductsService, OpenFoodFactsService, PricesService, StoresService, DevicesService],
+  controllers: [
+    HealthController,
+    ProductsController,
+    PricesController,
+    StoresController,
+    DevicesController,
+    AnalyticsController,
+  ],
+  providers: [
+    ProductsService,
+    OpenFoodFactsService,
+    PricesService,
+    StoresService,
+    DevicesService,
+    AnalyticsService,
+  ],
 })
 export class AppModule {}

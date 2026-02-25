@@ -22,6 +22,7 @@ export class ProductsService {
             OR: [
               { barcode: { contains: search, mode: 'insensitive' } },
               { name: { contains: search, mode: 'insensitive' } },
+              { brand: { contains: search, mode: 'insensitive' } },
             ],
           }
         : undefined,
@@ -47,6 +48,16 @@ export class ProductsService {
     });
 
     return ProductsArraySchema.parse(products);
+  }
+
+  async getById(id: string) {
+    const product = await this.prisma.product.findUnique({ where: { id } });
+
+    if (!product) {
+      throw new NotFoundException(`Product not found: ${id}`);
+    }
+
+    return ProductSchema.parse(product);
   }
 
   async getByBarcodeWithCacheAside(barcode: string) {
@@ -98,6 +109,7 @@ export class ProductsService {
           category: body.category ?? null,
           imageUrl: body.imageUrl ?? null,
           source: body.source,
+          isVerified: body.isVerified,
         },
       });
 
@@ -112,6 +124,15 @@ export class ProductsService {
   }
 
   async updateProduct(id: string, body: UpdateProductBody) {
+    const hasOverrideFields =
+      body.barcode !== undefined ||
+      body.name !== undefined ||
+      body.brand !== undefined ||
+      body.category !== undefined ||
+      body.imageUrl !== undefined;
+
+    const overrideSource = body.source ?? (hasOverrideFields ? ProductSource.manual : undefined);
+
     try {
       const product = await this.prisma.product.update({
         where: { id },
@@ -121,7 +142,8 @@ export class ProductsService {
           brand: body.brand,
           category: body.category,
           imageUrl: body.imageUrl,
-          source: body.source,
+          source: overrideSource,
+          isVerified: body.isVerified,
         },
       });
 

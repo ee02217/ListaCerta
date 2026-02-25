@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -19,6 +19,7 @@ class CreateProductBodyDto {
   category?: string | null;
   imageUrl?: string | null;
   source?: 'OFF' | 'manual';
+  isVerified?: boolean;
 }
 
 class UpdateProductBodyDto {
@@ -28,6 +29,7 @@ class UpdateProductBodyDto {
   category?: string | null;
   imageUrl?: string | null;
   source?: 'OFF' | 'manual';
+  isVerified?: boolean;
 }
 
 @ApiTags('products')
@@ -36,7 +38,7 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List products (search by barcode or name)' })
+  @ApiOperation({ summary: 'List products (search by barcode/name/brand)' })
   @ApiQuery({ name: 'q', required: false, type: String })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   async listProducts(
@@ -53,6 +55,13 @@ export class ProductsController {
     @Query(new ZodValidationPipe(searchProductsQuerySchema)) query: import('./products.schemas').SearchProductsQuery,
   ) {
     return this.productsService.searchProducts(query.q, query.limit);
+  }
+
+  @Get('id/:id')
+  @ApiOperation({ summary: 'Get product by internal id' })
+  @ApiParam({ name: 'id', type: String })
+  async getById(@Param('id', new ZodValidationPipe(productIdSchema)) id: string) {
+    return this.productsService.getById(id);
   }
 
   @Get('barcode/:barcode')
@@ -84,10 +93,21 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update product fields' })
+  @ApiOperation({ summary: 'Update product fields (partial)' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateProductBodyDto })
-  async updateProduct(
+  async updateProductPatch(
+    @Param('id', new ZodValidationPipe(productIdSchema)) id: string,
+    @Body(new ZodValidationPipe(updateProductSchema)) body: import('./products.schemas').UpdateProductBody,
+  ) {
+    return this.productsService.updateProduct(id, body);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Update product fields / save overrides / mark verified' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiBody({ type: UpdateProductBodyDto })
+  async updateProductPut(
     @Param('id', new ZodValidationPipe(productIdSchema)) id: string,
     @Body(new ZodValidationPipe(updateProductSchema)) body: import('./products.schemas').UpdateProductBody,
   ) {

@@ -19,6 +19,7 @@ export const ProductSchema = z.object({
   imageUrl: z.string().url().nullable(),
   source: ProductSourceSchema,
   cachedAt: IsoDateStringSchema.nullable(),
+  isVerified: z.boolean().default(false),
   createdAt: IsoDateStringSchema,
   updatedAt: IsoDateStringSchema,
 });
