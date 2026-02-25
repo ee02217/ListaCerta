@@ -4,11 +4,17 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import type { Store } from '@listacerta/shared-types';
+import type { Store as ApiStore } from '@listacerta/shared-types';
 import { ApiHttpError, priceApi, storeApi } from '../../src/network/apiClient';
 import { priceRepository } from '../../src/repositories/PriceRepository';
 import { storeRepository } from '../../src/repositories/StoreRepository';
 import { syncPendingPriceSubmissions } from '../../src/services/offlinePriceSync';
+
+type StoreOption = {
+  id: string;
+  name: string;
+  location: string | null;
+};
 
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -99,7 +105,7 @@ const makeIdempotencyKey = (productId: string, storeId: string) =>
 export default function AddPriceScreen() {
   const { productId } = useLocalSearchParams<{ productId: string }>();
 
-  const [stores, setStores] = useState<Store[]>([]);
+  const [stores, setStores] = useState<StoreOption[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [priceInput, setPriceInput] = useState('');
   const [currency, setCurrency] = useState('EUR');
@@ -120,28 +126,53 @@ export default function AddPriceScreen() {
     [stores, selectedStoreId],
   );
 
-  const refreshStores = async (preferredStoreId?: string) => {
-    const apiStores = await storeApi.listStores();
-    setStores(apiStores);
+  const normalizeApiStore = (store: ApiStore): StoreOption => ({
+    id: store.id,
+    name: store.name,
+    location: store.location ?? null,
+  });
 
-    if (apiStores.length > 0) {
-      const defaultStoreId =
-        preferredStoreId && apiStores.some((item) => item.id === preferredStoreId)
-          ? preferredStoreId
-          : apiStores[0].id;
+  const normalizeLocalStore = (store: { id: string; name: string }): StoreOption => ({
+    id: store.id,
+    name: store.name,
+    location: null,
+  });
 
-      setSelectedStoreId(defaultStoreId); // default store selected
-      await storeRepository.upsertManyFromApi(apiStores);
+  const applyStoreSelection = (allStores: StoreOption[], preferredStoreId?: string) => {
+    if (allStores.length === 0) {
+      setSelectedStoreId(null);
+      return;
     }
+
+    const defaultStoreId =
+      preferredStoreId && allStores.some((item) => item.id === preferredStoreId)
+        ? preferredStoreId
+        : allStores[0].id;
+
+    setSelectedStoreId(defaultStoreId);
+  };
+
+  const refreshStores = async (preferredStoreId?: string) => {
+    try {
+      const apiStores = await storeApi.listStores();
+      const normalized = apiStores.map(normalizeApiStore);
+      setStores(normalized);
+      applyStoreSelection(normalized, preferredStoreId);
+      await storeRepository.upsertManyFromApi(apiStores);
+      return;
+    } catch {
+      // Fall through to local cache.
+    }
+
+    const localStores = await storeRepository.getAll();
+    const normalizedLocal = localStores.map(normalizeLocalStore);
+    setStores(normalizedLocal);
+    applyStoreSelection(normalizedLocal, preferredStoreId);
   };
 
   useEffect(() => {
     const loadStores = async () => {
-      try {
-        await refreshStores();
-      } catch (error) {
-        Alert.alert('Stores unavailable', error instanceof Error ? error.message : 'Could not load stores.');
-      }
+      await refreshStores();
     };
 
     void loadStores();
