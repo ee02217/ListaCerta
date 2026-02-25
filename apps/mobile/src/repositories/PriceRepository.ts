@@ -24,6 +24,7 @@ type PendingPriceSubmissionRow = {
   currency: string;
   captured_at: string;
   photo_url: string | null;
+  submitted_by: string | null;
   created_at: string;
   retry_count: number;
   last_error: string | null;
@@ -37,6 +38,7 @@ export type PendingPriceSubmission = {
   currency: string;
   capturedAt: string;
   photoUrl: string | null;
+  submittedBy: string | null;
   createdAt: string;
   retryCount: number;
   lastError: string | null;
@@ -60,6 +62,7 @@ const toPendingSubmission = (row: PendingPriceSubmissionRow): PendingPriceSubmis
   currency: row.currency,
   capturedAt: row.captured_at,
   photoUrl: row.photo_url,
+  submittedBy: row.submitted_by,
   createdAt: row.created_at,
   retryCount: row.retry_count,
   lastError: row.last_error,
@@ -166,6 +169,7 @@ export const priceRepository = {
     currency: string;
     capturedAt: string;
     photoUrl?: string | null;
+    submittedBy?: string | null;
   }): Promise<void> {
     const db = await getDatabase();
 
@@ -178,10 +182,11 @@ export const priceRepository = {
           currency,
           captured_at,
           photo_url,
+          submitted_by,
           created_at,
           retry_count,
           last_error
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT retry_count FROM pending_price_submissions WHERE idempotency_key = ?), 0), COALESCE((SELECT last_error FROM pending_price_submissions WHERE idempotency_key = ?), NULL));`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT retry_count FROM pending_price_submissions WHERE idempotency_key = ?), 0), COALESCE((SELECT last_error FROM pending_price_submissions WHERE idempotency_key = ?), NULL));`,
       [
         input.idempotencyKey,
         input.productId,
@@ -190,6 +195,7 @@ export const priceRepository = {
         input.currency,
         input.capturedAt,
         input.photoUrl ?? null,
+        input.submittedBy ?? null,
         new Date().toISOString(),
         input.idempotencyKey,
         input.idempotencyKey,

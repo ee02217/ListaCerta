@@ -25,6 +25,7 @@ export const syncPendingPriceSubmissions = async (): Promise<{ synced: number; p
           capturedAt: item.capturedAt,
           photoUrl: item.photoUrl,
           idempotencyKey: item.idempotencyKey,
+          submittedBy: item.submittedBy ?? undefined,
         });
 
         await priceRepository.upsertFromApiPrice(response.createdPrice);

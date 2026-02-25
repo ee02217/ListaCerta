@@ -8,6 +8,7 @@ import type { Store as ApiStore } from '@listacerta/shared-types';
 import { ApiHttpError, priceApi, storeApi } from '../../src/network/apiClient';
 import { priceRepository } from '../../src/repositories/PriceRepository';
 import { storeRepository } from '../../src/repositories/StoreRepository';
+import { getOrCreateDeviceId } from '../../src/services/deviceIdentity';
 import { syncPendingPriceSubmissions } from '../../src/services/offlinePriceSync';
 
 type StoreOption = {
@@ -291,6 +292,7 @@ export default function AddPriceScreen() {
     const priceCents = Math.round(parsedAmount * 100);
     const capturedAt = new Date().toISOString();
     const idempotencyKey = makeIdempotencyKey(productId, selectedStoreId);
+    const deviceId = await getOrCreateDeviceId();
 
     setSaving(true);
 
@@ -302,6 +304,7 @@ export default function AddPriceScreen() {
         currency: normalizedCurrency,
         capturedAt,
         idempotencyKey,
+        submittedBy: deviceId,
       });
 
       await priceRepository.upsertFromApiPrice(response.createdPrice);
@@ -331,6 +334,7 @@ export default function AddPriceScreen() {
             priceCents,
             currency: normalizedCurrency,
             capturedAt,
+            submittedBy: deviceId,
           });
 
           await priceRepository.addPrice({

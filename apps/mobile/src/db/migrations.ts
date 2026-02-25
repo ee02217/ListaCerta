@@ -77,6 +77,18 @@ const MIGRATIONS: Migration[] = [
       'CREATE INDEX IF NOT EXISTS idx_pending_price_created_at ON pending_price_submissions(created_at);',
     ],
   },
+  {
+    version: 4,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS app_identity (
+        key TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );`,
+      'ALTER TABLE pending_price_submissions ADD COLUMN submitted_by TEXT;',
+    ],
+  },
 ];
 
 export const runMigrations = async (db: SQLiteDatabase): Promise<void> => {

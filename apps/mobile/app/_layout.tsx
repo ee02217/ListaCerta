@@ -5,6 +5,7 @@ import { ActivityIndicator, AppState, Text, View } from 'react-native';
 import { getDatabase } from '../src/db/client';
 import { runMigrations } from '../src/db/migrations';
 import { seedDatabaseIfEmpty } from '../src/db/seed';
+import { getOrCreateDeviceId } from '../src/services/deviceIdentity';
 import { syncPendingPriceSubmissions } from '../src/services/offlinePriceSync';
 import { syncStoresToLocal } from '../src/services/storeSync';
 
@@ -18,6 +19,7 @@ export default function RootLayout() {
         const db = await getDatabase();
         await runMigrations(db);
         await seedDatabaseIfEmpty(db);
+        await getOrCreateDeviceId();
         setReady(true);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown startup error');
