@@ -31,6 +31,7 @@ export type ModerationPrice = {
   submittedBy: string | null;
   photoUrl: string | null;
   status: 'active' | 'flagged';
+  confidenceScore: number;
   product: Product;
   store: Store;
   device: Device | null;

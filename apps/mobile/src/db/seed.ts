@@ -48,8 +48,8 @@ export const seedDatabaseIfEmpty = async (db: SQLiteDatabase): Promise<void> => 
     );
 
     await db.runAsync(
-      'INSERT INTO prices (id, product_id, store_id, amount_cents, currency, observed_at) VALUES (?, ?, ?, ?, ?, ?);',
-      [priceId, productId, storeId, 399, 'EUR', now],
+      'INSERT INTO prices (id, product_id, store_id, amount_cents, currency, observed_at, status, confidence_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?);',
+      [priceId, productId, storeId, 399, 'EUR', now, 'active', 1],
     );
 
     await db.execAsync('COMMIT;');

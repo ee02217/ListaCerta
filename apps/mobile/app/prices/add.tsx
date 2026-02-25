@@ -261,9 +261,14 @@ export default function AddPriceScreen() {
       await priceRepository.upsertFromApiPrice(response.createdPrice);
       await priceRepository.upsertFromApiPrice(response.bestPrice);
 
+      const moderationNote =
+        response.createdPrice.status === 'flagged'
+          ? '\nNote: this price was auto-flagged as a potential outlier and may require admin approval.'
+          : '';
+
       Alert.alert(
         'Price saved',
-        `Saved ${(response.createdPrice.priceCents / 100).toFixed(2)} ${response.createdPrice.currency}.\nBest price is now ${(response.bestPrice.priceCents / 100).toFixed(2)} ${response.bestPrice.currency} at ${response.bestPrice.store?.name ?? 'store'}.`,
+        `Saved ${(response.createdPrice.priceCents / 100).toFixed(2)} ${response.createdPrice.currency}.\nBest price is now ${(response.bestPrice.priceCents / 100).toFixed(2)} ${response.bestPrice.currency} at ${response.bestPrice.store?.name ?? 'store'}.${moderationNote}`,
       );
 
       router.replace({ pathname: '/products/[id]', params: { id: productId } });

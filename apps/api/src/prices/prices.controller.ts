@@ -70,4 +70,13 @@ export class PricesController {
   ) {
     return this.pricesService.getBestPrice(productId);
   }
+
+  @Get('history/:productId')
+  @ApiOperation({ summary: 'Get active price history for a product (newest first)' })
+  @ApiParam({ name: 'productId', type: String })
+  async getPriceHistory(
+    @Param('productId', new ZodValidationPipe(productIdSchema)) productId: string,
+  ) {
+    return this.pricesService.getPriceHistory(productId);
+  }
 }

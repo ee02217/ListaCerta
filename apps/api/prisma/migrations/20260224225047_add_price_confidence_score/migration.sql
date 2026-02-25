@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Price" ADD COLUMN     "confidenceScore" DOUBLE PRECISION NOT NULL DEFAULT 1;

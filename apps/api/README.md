@@ -46,6 +46,7 @@ npm run dev -w @listacerta/api
 - `GET /prices/moderation?status=&limit=`
 - `PATCH /prices/:id/moderation`
 - `GET /prices/best/:productId` (best overall + grouped by store + price history)
+- `GET /prices/history/:productId` (active history sorted by date desc)
 - `GET /stores`
 - `POST /stores`
 - `GET /health`
@@ -96,6 +97,7 @@ erDiagram
     string submittedBy FK
     string photoUrl
     enum status
+    float confidenceScore
   }
 
   DEVICE {

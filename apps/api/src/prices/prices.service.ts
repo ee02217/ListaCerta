@@ -14,9 +14,18 @@ export class PricesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createPrice(body: CreatePriceBody) {
-    const [product, store] = await Promise.all([
+    const [product, store, aggregate] = await Promise.all([
       this.prisma.product.findUnique({ where: { id: body.productId } }),
       this.prisma.store.findUnique({ where: { id: body.storeId } }),
+      this.prisma.price.aggregate({
+        where: {
+          productId: body.productId,
+          status: 'active',
+        },
+        _avg: {
+          priceCents: true,
+        },
+      }),
     ]);
 
     if (!product) {
@@ -35,6 +44,12 @@ export class PricesService {
       });
     }
 
+    const avgPrice = aggregate._avg.priceCents ?? null;
+    const deviationRatio = avgPrice && avgPrice > 0 ? Math.abs(body.priceCents - avgPrice) / avgPrice : 0;
+    const autoFlagged = avgPrice != null && deviationRatio > 0.5;
+    const confidenceScore = Number(Math.max(0, 1 - Math.min(1, deviationRatio)).toFixed(3));
+    const finalStatus = autoFlagged ? 'flagged' : body.status;
+
     const createdPrice = await this.prisma.price.create({
       data: {
         productId: body.productId,
@@ -44,7 +59,8 @@ export class PricesService {
         capturedAt: body.capturedAt ? new Date(body.capturedAt) : new Date(),
         submittedBy: body.submittedBy ?? null,
         photoUrl: body.photoUrl ?? null,
-        status: body.status,
+        status: finalStatus,
+        confidenceScore,
       },
       include: {
         product: true,
@@ -77,18 +93,11 @@ export class PricesService {
   }
 
   async getBestPrice(productId: string) {
-    const history = await this.prisma.price.findMany({
-      where: {
-        productId,
-        status: 'active',
-      },
-      orderBy: [{ capturedAt: 'desc' }],
-      include: {
-        product: true,
-        store: true,
-        device: true,
-      },
-    });
+    const history = await this.getPriceHistory(productId);
+
+    if (history.length === 0) {
+      throw new NotFoundException(`No active prices for product: ${productId}`);
+    }
 
     if (history.length === 0) {
       throw new NotFoundException(`No active prices for product: ${productId}`);
@@ -127,6 +136,23 @@ export class PricesService {
       groupedByStore,
       priceHistory: history,
     });
+  }
+
+  async getPriceHistory(productId: string) {
+    const history = await this.prisma.price.findMany({
+      where: {
+        productId,
+        status: 'active',
+      },
+      orderBy: [{ capturedAt: 'desc' }],
+      include: {
+        product: true,
+        store: true,
+        device: true,
+      },
+    });
+
+    return PricesWithRelationsArraySchema.parse(history);
   }
 
   async listModerationQueue(query: ListModerationQuery) {

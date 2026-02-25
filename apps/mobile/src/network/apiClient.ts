@@ -139,6 +139,11 @@ export const priceApi = {
     return PriceAggregationSchema.parse(payload);
   },
 
+  async fetchHistory(productId: string) {
+    const payload = await apiClient.request<unknown>(`/prices/history/${productId}`);
+    return PriceAggregationSchema.shape.priceHistory.parse(payload);
+  },
+
   async submitPrice(input: {
     productId: string;
     storeId: string;

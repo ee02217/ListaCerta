@@ -52,12 +52,16 @@ export default function ProductDetailScreen() {
 
     if (isUuid(productId)) {
       try {
-        const aggregation: PriceAggregation = await priceApi.fetchBestPrice(productId);
+        const [aggregation, history] = await Promise.all([
+          priceApi.fetchBestPrice(productId),
+          priceApi.fetchHistory(productId),
+        ]);
+
         setBestOverall(aggregation.bestOverall);
         setGroupedByStore(aggregation.groupedByStore);
-        setPriceHistory(aggregation.priceHistory);
+        setPriceHistory(history);
 
-        for (const historyEntry of aggregation.priceHistory) {
+        for (const historyEntry of history) {
           await priceRepository.upsertFromApiPrice(historyEntry);
         }
       } catch (error) {

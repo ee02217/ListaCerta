@@ -11,6 +11,8 @@ type PriceWithStoreRow = {
   amount_cents: number;
   currency: string;
   observed_at: string;
+  status: string;
+  confidence_score: number;
   store_name: string;
 };
 
@@ -34,15 +36,19 @@ export const priceRepository = {
               p.amount_cents,
               p.currency,
               p.observed_at,
+              p.status,
+              p.confidence_score,
               s.name as store_name
          FROM prices p
          JOIN stores s ON s.id = p.store_id
         WHERE p.product_id = ?
+          AND p.status = 'active'
           AND p.observed_at = (
             SELECT MAX(p2.observed_at)
               FROM prices p2
              WHERE p2.product_id = p.product_id
                AND p2.store_id = p.store_id
+               AND p2.status = 'active'
           )
         ORDER BY p.observed_at DESC;`,
       [productId],
@@ -78,18 +84,38 @@ export const priceRepository = {
                 store_id = ?,
                 amount_cents = ?,
                 currency = ?,
-                observed_at = ?
+                observed_at = ?,
+                status = ?,
+                confidence_score = ?
           WHERE id = ?;`,
-        [price.productId, price.storeId, price.priceCents, price.currency, price.capturedAt, price.id],
+        [
+          price.productId,
+          price.storeId,
+          price.priceCents,
+          price.currency,
+          price.capturedAt,
+          price.status,
+          price.confidenceScore,
+          price.id,
+        ],
       );
 
       return;
     }
 
     await db.runAsync(
-      `INSERT INTO prices (id, product_id, store_id, amount_cents, currency, observed_at)
-       VALUES (?, ?, ?, ?, ?, ?);`,
-      [price.id, price.productId, price.storeId, price.priceCents, price.currency, price.capturedAt],
+      `INSERT INTO prices (id, product_id, store_id, amount_cents, currency, observed_at, status, confidence_score)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        price.id,
+        price.productId,
+        price.storeId,
+        price.priceCents,
+        price.currency,
+        price.capturedAt,
+        price.status,
+        price.confidenceScore,
+      ],
     );
   },
 
@@ -103,8 +129,8 @@ export const priceRepository = {
     const db = await getDatabase();
 
     await db.runAsync(
-      `INSERT INTO prices (id, product_id, store_id, amount_cents, currency, observed_at)
-       VALUES (?, ?, ?, ?, ?, ?);`,
+      `INSERT INTO prices (id, product_id, store_id, amount_cents, currency, observed_at, status, confidence_score)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         makeId('price'),
         input.productId,
@@ -112,6 +138,8 @@ export const priceRepository = {
         input.amountCents,
         input.currency,
         input.observedAt ?? new Date().toISOString(),
+        'active',
+        1,
       ],
     );
   },

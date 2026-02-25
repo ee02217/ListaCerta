@@ -51,6 +51,14 @@ const MIGRATIONS: Migration[] = [
       'CREATE INDEX IF NOT EXISTS idx_prices_store_id ON prices(store_id);',
     ],
   },
+  {
+    version: 2,
+    statements: [
+      "ALTER TABLE prices ADD COLUMN status TEXT NOT NULL DEFAULT 'active';",
+      "ALTER TABLE prices ADD COLUMN confidence_score REAL NOT NULL DEFAULT 1;",
+      'CREATE INDEX IF NOT EXISTS idx_prices_status ON prices(status);',
+    ],
+  },
 ];
 
 export const runMigrations = async (db: SQLiteDatabase): Promise<void> => {
