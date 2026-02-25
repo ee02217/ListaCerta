@@ -24,6 +24,22 @@ ListaCerta/
 └── README.md
 ```
 
+## App screenshots (iOS Simulator)
+
+Real runtime captures from the Expo development build.
+
+| Scan barcode | List details | Add price |
+|---|---|---|
+| <img src="docs/screenshots/feature01-barcode-mobile.png" width="220" /> | <img src="docs/screenshots/feature02-list-mobile.png" width="220" /> | <img src="docs/screenshots/feature03-price-mobile.png" width="220" /> |
+
+| Best price | Store picker | Product search |
+|---|---|---|
+| <img src="docs/screenshots/feature04-bestprice-mobile.png" width="220" /> | <img src="docs/screenshots/feature05-store-mobile.png" width="220" /> | <img src="docs/screenshots/feature07-search-mobile.png" width="220" /> |
+
+| Price history | Offline flow | Device identity flow |
+|---|---|---|
+| <img src="docs/screenshots/feature08-history-mobile.png" width="220" /> | <img src="docs/screenshots/feature09-offline-mobile.png" width="220" /> | <img src="docs/screenshots/feature10-device-mobile.png" width="220" /> |
+
 ## Prerequisites
 
 - Node.js 20+
