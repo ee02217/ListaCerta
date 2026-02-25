@@ -26,10 +26,14 @@ Then launch the generated dev client on simulator and connect to Metro.
 Create `apps/mobile/.env`:
 
 ```bash
-EXPO_PUBLIC_API_BASE_URL=http://localhost:3001
+# default (public nginx endpoint)
+EXPO_PUBLIC_API_BASE_URL=https://products.sasnas.duckdns.org:1443
+
+# optional local override
+# EXPO_PUBLIC_API_BASE_URL=http://localhost:3001
 ```
 
-This value is used by `src/network/apiClient.ts`.
+This value is used by `src/api/client.ts`.
 
 ## Architecture
 
@@ -72,7 +76,8 @@ apps/mobile
 ├── src/
 │   ├── db/               # sqlite client, migrations, seed
 │   ├── repositories/     # clean DB access layer
-│   ├── network/          # API base client (stubs for now)
+│   ├── api/              # API config/client/endpoints
+│   ├── network/          # Backward-compatible re-exports
 │   ├── state/            # Zustand UI-only state
 │   └── domain/           # app model types
 └── README.md

@@ -28,6 +28,8 @@ ListaCerta/
 
 Real runtime captures from the Expo development build.
 
+> UI system refactor details (navigation/theme/components): see `docs/ui-system.md`.
+
 | Scan barcode | List details | Add price |
 |---|---|---|
 | <img src="docs/screenshots/feature01-barcode-mobile.png" width="220" /> | <img src="docs/screenshots/feature02-list-mobile.png" width="220" /> | <img src="docs/screenshots/feature03-price-mobile.png" width="220" /> |
@@ -98,6 +100,24 @@ docker compose --profile admin --profile storage up -d --build
 - PostgreSQL: `localhost:5432`
 - MinIO API (storage profile): `http://localhost:9000`
 - MinIO Console (storage profile): `http://localhost:9001`
+
+## Mobile API base URL
+
+The Expo app reads API base URL from `EXPO_PUBLIC_API_BASE_URL` (single source of truth in `apps/mobile/src/api/client.ts`).
+
+Default (public Nginx endpoint):
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=https://products.sasnas.duckdns.org:1443
+```
+
+Optional local override for simulator-only local backend:
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://localhost:3001
+```
+
+Set this in either root `.env` (workspace) or `apps/mobile/.env` before starting Metro.
 
 ## Stop everything
 

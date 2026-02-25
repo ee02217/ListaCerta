@@ -1,4 +1,4 @@
-import { storeApi } from '../network/apiClient';
+import { storeApi } from '../api/endpoints';
 import { storeRepository } from '../repositories/StoreRepository';
 
 export const syncStoresToLocal = async (): Promise<{ synced: number }> => {

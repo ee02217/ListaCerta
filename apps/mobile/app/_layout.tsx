@@ -1,13 +1,15 @@
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, AppState, Text, View } from 'react-native';
+import { AppState } from 'react-native';
 
+import { EmptyState, LoadingState, ScreenContainer } from '../src/components';
 import { getDatabase } from '../src/db/client';
 import { runMigrations } from '../src/db/migrations';
 import { seedDatabaseIfEmpty } from '../src/db/seed';
 import { getOrCreateDeviceId } from '../src/services/deviceIdentity';
 import { syncPendingPriceSubmissions } from '../src/services/offlinePriceSync';
 import { syncStoresToLocal } from '../src/services/storeSync';
+import { theme } from '../src/theme';
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -44,13 +46,13 @@ export default function RootLayout() {
       try {
         await syncStoresToLocal();
       } catch {
-        // Ignore transient network errors. We'll retry on interval/foreground.
+        // transient errors are expected when offline
       }
 
       try {
         await syncPendingPriceSubmissions();
       } catch {
-        // Silent retry loop; pending queue remains for next attempt.
+        // queue will retry later
       }
     };
 
@@ -75,33 +77,31 @@ export default function RootLayout() {
 
   if (error) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Startup failed</Text>
-        <Text>{error}</Text>
-      </View>
+      <ScreenContainer>
+        <EmptyState title="Startup failed" message={error} />
+      </ScreenContainer>
     );
   }
 
   if (!ready) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" />
-        <Text style={{ marginTop: 12 }}>Preparing local database…</Text>
-      </View>
+      <ScreenContainer>
+        <LoadingState message="Preparing local database…" />
+      </ScreenContainer>
     );
   }
 
   return (
     <Stack
       screenOptions={{
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontWeight: '700', color: theme.colors.text },
+        headerTintColor: theme.colors.text,
+        headerShadowVisible: false,
+        headerStyle: { backgroundColor: theme.colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Home' }} />
-      <Stack.Screen name="lists/[id]" options={{ title: 'List details' }} />
-      <Stack.Screen name="scan" options={{ title: 'Scan barcode' }} />
-      <Stack.Screen name="products/[id]" options={{ title: 'Product detail' }} />
-      <Stack.Screen name="prices/add" options={{ title: 'Add price' }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
   );
 }

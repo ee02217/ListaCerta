@@ -1,4 +1,5 @@
-import { ApiHttpError, priceApi } from '../network/apiClient';
+import { ApiHttpError } from '../api/client';
+import { priceApi } from '../api/endpoints';
 import { priceRepository } from '../repositories/PriceRepository';
 
 let isSyncing = false;
