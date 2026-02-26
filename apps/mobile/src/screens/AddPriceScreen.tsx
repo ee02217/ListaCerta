@@ -1,13 +1,12 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { NativeModulesProxy } from 'expo-modules-core';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import type { Store as ApiStore } from '@listacerta/shared-types';
 import { ApiHttpError } from '../api/client';
-import { priceApi, storeApi } from '../api/endpoints';
-import { PrimaryButton, ScreenContainer, SecondaryButton, SectionHeader } from '../components';
+import { priceApi } from '../api/endpoints';
+import { EmptyState, PrimaryButton, ScreenContainer, SecondaryButton, SectionHeader } from '../components';
 import { priceRepository } from '../repositories/PriceRepository';
 import { storeRepository } from '../repositories/StoreRepository';
 import { getOrCreateDeviceId } from '../services/deviceIdentity';
@@ -17,7 +16,6 @@ import { theme } from '../theme';
 type StoreOption = {
   id: string;
   name: string;
-  location: string | null;
 };
 
 const isUuid = (value: string) =>
@@ -49,9 +47,6 @@ export default function AddPriceScreen() {
   const [priceInput, setPriceInput] = useState('');
   const [currency, setCurrency] = useState('EUR');
   const [saving, setSaving] = useState(false);
-  const [newStoreName, setNewStoreName] = useState('');
-  const [newStoreLocation, setNewStoreLocation] = useState('');
-  const [isCreatingStore, setIsCreatingStore] = useState(false);
 
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
@@ -64,18 +59,6 @@ export default function AddPriceScreen() {
     () => stores.find((store) => store.id === selectedStoreId) ?? null,
     [stores, selectedStoreId],
   );
-
-  const normalizeApiStore = (store: ApiStore): StoreOption => ({
-    id: store.id,
-    name: store.name,
-    location: store.location ?? null,
-  });
-
-  const normalizeLocalStore = (store: { id: string; name: string }): StoreOption => ({
-    id: store.id,
-    name: store.name,
-    location: null,
-  });
 
   const applyStoreSelection = (allStores: StoreOption[], preferredStoreId?: string) => {
     if (allStores.length === 0) {
@@ -91,59 +74,28 @@ export default function AddPriceScreen() {
     setSelectedStoreId(defaultStoreId);
   };
 
-  const refreshStores = async (preferredStoreId?: string) => {
+  const refreshStores = useCallback(async (preferredStoreId?: string) => {
     try {
-      const apiStores = await storeApi.listStores();
-      const normalized = apiStores.map(normalizeApiStore);
+      const localStores = await storeRepository.listStores({ enabledOnly: true });
+      const normalized = localStores.map((store) => ({ id: store.id, name: store.name }));
       setStores(normalized);
       applyStoreSelection(normalized, preferredStoreId);
-      await storeRepository.upsertManyFromApi(apiStores);
-      return;
-    } catch {
-      // fallback to cache
+    } catch (error) {
+      Alert.alert('Could not load stores', error instanceof Error ? error.message : 'Unknown error');
+      setStores([]);
+      setSelectedStoreId(null);
     }
-
-    const localStores = await storeRepository.getAll();
-    const normalizedLocal = localStores.map(normalizeLocalStore);
-    setStores(normalizedLocal);
-    applyStoreSelection(normalizedLocal, preferredStoreId);
-  };
-
-  useEffect(() => {
-    void refreshStores();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshStores(selectedStoreId ?? undefined);
+    }, [refreshStores, selectedStoreId]),
+  );
 
   const openStoreModal = async () => {
     await refreshStores(selectedStoreId ?? undefined);
     setIsStoreModalOpen(true);
-  };
-
-  const createStoreInline = async () => {
-    const normalizedName = newStoreName.trim();
-
-    if (!normalizedName) {
-      Alert.alert('Store name required', 'Please enter a store name.');
-      return;
-    }
-
-    setIsCreatingStore(true);
-
-    try {
-      const created = await storeApi.createStore({
-        name: normalizedName,
-        location: newStoreLocation.trim() || null,
-      });
-
-      await storeRepository.upsertFromApiStore(created);
-      await refreshStores(created.id);
-      setNewStoreName('');
-      setNewStoreLocation('');
-      Alert.alert('Store created', `${created.name} is ready to use.`);
-    } catch (error) {
-      Alert.alert('Could not create store', error instanceof Error ? error.message : 'Unknown error');
-    } finally {
-      setIsCreatingStore(false);
-    }
   };
 
   const runPriceOcr = async () => {
@@ -208,7 +160,7 @@ export default function AddPriceScreen() {
     }
 
     if (!selectedStoreId) {
-      Alert.alert('Missing store', 'Please choose a store.');
+      Alert.alert('No stores enabled', 'Enable stores in Settings before adding prices.');
       return;
     }
 
@@ -291,9 +243,19 @@ export default function AddPriceScreen() {
 
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Store</Text>
-          <Pressable style={styles.selector} onPress={() => void openStoreModal()}>
-            <Text style={styles.selectorText}>{selectedStore?.name ?? 'Select store'}</Text>
-          </Pressable>
+
+          {stores.length === 0 ? (
+            <EmptyState
+              title="No stores enabled"
+              message="Enable stores in Settings."
+              actionLabel="Open Settings"
+              onAction={() => router.push('/(tabs)/(settings)')}
+            />
+          ) : (
+            <Pressable style={styles.selector} onPress={() => void openStoreModal()}>
+              <Text style={styles.selectorText}>{selectedStore?.name ?? 'Select store'}</Text>
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.fieldGroup}>
@@ -322,7 +284,11 @@ export default function AddPriceScreen() {
           />
         </View>
 
-        <PrimaryButton label={saving ? 'Saving…' : 'Save price'} onPress={() => void onSave()} disabled={saving} />
+        <PrimaryButton
+          label={saving ? 'Saving…' : 'Save price'}
+          onPress={() => void onSave()}
+          disabled={saving || stores.length === 0}
+        />
       </ScreenContainer>
 
       <Modal
@@ -334,8 +300,17 @@ export default function AddPriceScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Choose store</Text>
+
             {stores.length === 0 ? (
-              <Text style={styles.emptyText}>No stores available locally. Connect and sync stores.</Text>
+              <EmptyState
+                title="No stores enabled"
+                message="Enable stores in Settings to continue."
+                actionLabel="Open Settings"
+                onAction={() => {
+                  setIsStoreModalOpen(false);
+                  router.push('/(tabs)/(settings)');
+                }}
+              />
             ) : (
               stores.map((store) => (
                 <Pressable
@@ -356,28 +331,6 @@ export default function AddPriceScreen() {
                 </Pressable>
               ))
             )}
-
-            <Text style={styles.fieldLabel}>Add new store</Text>
-            <TextInput
-              value={newStoreName}
-              onChangeText={setNewStoreName}
-              style={styles.input}
-              placeholder="Store name"
-              placeholderTextColor={theme.colors.muted}
-            />
-            <TextInput
-              value={newStoreLocation}
-              onChangeText={setNewStoreLocation}
-              style={styles.input}
-              placeholder="Location (optional)"
-              placeholderTextColor={theme.colors.muted}
-            />
-
-            <PrimaryButton
-              label={isCreatingStore ? 'Creating…' : 'Create store'}
-              onPress={() => void createStoreInline()}
-              disabled={isCreatingStore}
-            />
 
             <SecondaryButton label="Close" onPress={() => setIsStoreModalOpen(false)} />
           </View>

@@ -114,11 +114,11 @@ export const priceRepository = {
     ]);
 
     if (!storeExists) {
-      await db.runAsync('INSERT INTO stores (id, name, updated_at) VALUES (?, ?, ?);', [
-        price.storeId,
-        storeName,
-        new Date().toISOString(),
-      ]);
+      const now = new Date().toISOString();
+      await db.runAsync(
+        'INSERT INTO stores (id, name, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?);',
+        [price.storeId, storeName, 1, now, now],
+      );
     }
 
     const existing = await db.getFirstAsync<{ id: string }>('SELECT id FROM prices WHERE id = ? LIMIT 1;', [

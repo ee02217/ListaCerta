@@ -109,6 +109,16 @@ const MIGRATIONS: Migration[] = [
       'CREATE INDEX IF NOT EXISTS idx_products_name_brand ON products(name, brand);',
     ],
   },
+  {
+    version: 6,
+    statements: [
+      'ALTER TABLE stores ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;',
+      "ALTER TABLE stores ADD COLUMN created_at TEXT NOT NULL DEFAULT '';",
+      "UPDATE stores SET created_at = CASE WHEN created_at = '' THEN updated_at ELSE created_at END;",
+      'CREATE INDEX IF NOT EXISTS idx_stores_enabled ON stores(enabled);',
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_name_unique_nocase ON stores(name COLLATE NOCASE);',
+    ],
+  },
 ];
 
 export const runMigrations = async (db: SQLiteDatabase): Promise<void> => {

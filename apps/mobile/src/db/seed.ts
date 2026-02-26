@@ -38,8 +38,8 @@ export const seedDatabaseIfEmpty = async (db: SQLiteDatabase): Promise<void> => 
     );
 
     await db.runAsync(
-      'INSERT INTO stores (id, name, updated_at) VALUES (?, ?, ?);',
-      [storeId, 'Local Market', now],
+      'INSERT INTO stores (id, name, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?);',
+      [storeId, 'Local Market', 1, now, now],
     );
 
     await db.runAsync(
