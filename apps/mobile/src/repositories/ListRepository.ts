@@ -139,8 +139,33 @@ export const listRepository = {
 
   async deleteItem(itemId: string): Promise<void> {
     const db = await getDatabase();
-    await db.runAsync('DELETE FROM list_items WHERE id = ?;', [itemId]);
-    console.info(`[db] DELETE FROM list_items WHERE id = ?; [${itemId}]`);
+    await db.execAsync('BEGIN;');
+
+    try {
+      await db.runAsync('DELETE FROM list_items WHERE id = ?;', [itemId]);
+      await db.execAsync('COMMIT;');
+      console.info(`[db] DELETE FROM list_items WHERE id = ?; [${itemId}]`);
+    } catch (error) {
+      await db.execAsync('ROLLBACK;');
+      throw error;
+    }
+  },
+
+  async restoreItem(item: ListItem): Promise<void> {
+    const db = await getDatabase();
+    await db.execAsync('BEGIN;');
+
+    try {
+      await db.runAsync(
+        'INSERT INTO list_items (id, list_id, title, done, quantity, created_at) VALUES (?, ?, ?, ?, ?, ?);',
+        [item.id, item.listId, item.title, item.done ? 1 : 0, item.quantity, item.createdAt],
+      );
+      await db.execAsync('COMMIT;');
+      console.info(`[db] INSERT INTO list_items (...) VALUES (...); [${item.id}]`);
+    } catch (error) {
+      await db.execAsync('ROLLBACK;');
+      throw error;
+    }
   },
 
   async updateListName(listId: string, name: string): Promise<void> {

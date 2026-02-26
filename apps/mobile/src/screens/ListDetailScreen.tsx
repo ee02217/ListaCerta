@@ -2,10 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   Image,
   Keyboard,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   Platform,
   Pressable,
@@ -13,6 +15,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -38,6 +41,7 @@ type ProductSearchResult = Product & {
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
+const UNDO_WINDOW_MS = 3000;
 
 const formatBestPrice = (best: { priceCents: number; currency: string } | undefined) =>
   best ? `${(best.priceCents / 100).toFixed(2)} ${best.currency}` : undefined;
@@ -60,10 +64,13 @@ export default function ListDetailScreen() {
   const [createCategory, setCreateCategory] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSaving, setCreateSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingUndoItem, setPendingUndoItem] = useState<ListItem | null>(null);
 
   const listId = useMemo(() => id ?? '', [id]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeableRefs = useRef<Record<string, Swipeable | null>>({});
   const openSwipeItemIdRef = useRef<string | null>(null);
 
@@ -92,9 +99,17 @@ export default function ListDetailScreen() {
   );
 
   useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+
     return () => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
+      }
+
+      if (undoTimerRef.current) {
+        clearTimeout(undoTimerRef.current);
       }
 
       abortRef.current?.abort();
@@ -307,13 +322,66 @@ export default function ListDetailScreen() {
     }
   }, []);
 
-  const deleteItemFromList = useCallback(
-    async (itemId: string) => {
-      closeOpenedItemSwipe();
-      await listRepository.deleteItem(itemId);
+  const clearUndoTimer = useCallback(() => {
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+  }, []);
+
+  const finalizeUndoWindow = useCallback(() => {
+    setPendingUndoItem(null);
+    setToastMessage(null);
+    clearUndoTimer();
+  }, [clearUndoTimer]);
+
+  const undoDelete = useCallback(async () => {
+    if (!pendingUndoItem) {
+      return;
+    }
+
+    clearUndoTimer();
+
+    try {
+      await listRepository.restoreItem(pendingUndoItem);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setItems((previous) => [pendingUndoItem, ...previous]);
+      setPendingUndoItem(null);
+      setToastMessage('Restored');
+      undoTimerRef.current = setTimeout(() => {
+        setToastMessage(null);
+      }, 1200);
+    } catch (error) {
+      Alert.alert('Could not restore item', error instanceof Error ? error.message : 'Unknown error');
+      finalizeUndoWindow();
       await load();
+    }
+  }, [clearUndoTimer, finalizeUndoWindow, load, pendingUndoItem]);
+
+  const deleteItemFromList = useCallback(
+    async (item: ListItem) => {
+      closeOpenedItemSwipe();
+      clearUndoTimer();
+
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setItems((previous) => previous.filter((candidate) => candidate.id !== item.id));
+      setPendingUndoItem(item);
+      setToastMessage('Item removed');
+
+      try {
+        await listRepository.deleteItem(item.id);
+      } catch (error) {
+        Alert.alert('Could not delete item', error instanceof Error ? error.message : 'Unknown error');
+        finalizeUndoWindow();
+        await load();
+        return;
+      }
+
+      undoTimerRef.current = setTimeout(() => {
+        finalizeUndoWindow();
+      }, UNDO_WINDOW_MS);
     },
-    [closeOpenedItemSwipe, load],
+    [clearUndoTimer, closeOpenedItemSwipe, finalizeUndoWindow, load],
   );
 
   const searchDropdownVisible = searchFocused && Boolean(searchQuery.trim());
@@ -325,13 +393,13 @@ export default function ListDetailScreen() {
           ref={(ref: Swipeable | null) => {
             swipeableRefs.current[item.id] = ref;
           }}
-          friction={2}
-          rightThreshold={28}
+          friction={1.7}
+          rightThreshold={34}
           overshootRight={false}
           renderRightActions={() => (
             <Pressable
               style={({ pressed }) => [styles.itemDeleteAction, pressed && styles.itemDeleteActionPressed]}
-              onPress={() => void deleteItemFromList(item.id)}
+              onPress={() => void deleteItemFromList(item)}
             >
               <Text style={styles.itemDeleteActionText}>Delete</Text>
             </Pressable>
@@ -490,6 +558,19 @@ export default function ListDetailScreen() {
             <EmptyState title="No items yet" message="Search products to start filling this list." />
           }
         />
+
+        {toastMessage ? (
+          <View style={styles.toastWrap}>
+            <View style={styles.toastCard}>
+              <Text style={styles.toastText}>{toastMessage}</Text>
+              {pendingUndoItem ? (
+                <Pressable style={styles.toastUndoButton} onPress={() => void undoDelete()}>
+                  <Text style={styles.toastUndoText}>Undo</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
       </ScreenContainer>
 
       <Modal
@@ -779,6 +860,40 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '700',
     color: theme.colors.text,
+  },
+  toastWrap: {
+    position: 'absolute',
+    left: theme.spacing.lg,
+    right: theme.spacing.lg,
+    bottom: theme.spacing.xxl + 60,
+    alignItems: 'center',
+  },
+  toastCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.text,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    ...theme.shadows.floating,
+  },
+  toastText: {
+    ...theme.typography.caption,
+    color: theme.colors.onPrimary,
+    fontWeight: '700',
+  },
+  toastUndoButton: {
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.colors.onPrimary,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+  },
+  toastUndoText: {
+    ...theme.typography.caption,
+    color: theme.colors.onPrimary,
+    fontWeight: '700',
   },
   modalRoot: {
     flex: 1,
