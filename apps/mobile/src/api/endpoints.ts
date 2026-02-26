@@ -14,7 +14,7 @@ import {
 import { apiClient, type ApiRequestOptions } from './client';
 
 export type SaveProductInput = {
-  barcode?: string;
+  barcode?: string | null;
   name?: string;
   brand?: string | null;
   category?: string | null;
@@ -64,7 +64,16 @@ export const getProductByBarcode = async (barcode: string): Promise<Product> => 
   return ProductSchema.parse(payload);
 };
 
-export const searchProducts = async (query: string, limit = 50): Promise<Product[]> => {
+export const getProductById = async (id: string): Promise<Product> => {
+  const payload = await requestJson<unknown>(`/products/id/${encodeURIComponent(id)}`);
+  return ProductSchema.parse(payload);
+};
+
+export const searchProducts = async (
+  query: string,
+  limit = 50,
+  options?: { signal?: AbortSignal },
+): Promise<Product[]> => {
   const trimmed = query.trim();
   if (!trimmed) {
     return [];
@@ -72,6 +81,9 @@ export const searchProducts = async (query: string, limit = 50): Promise<Product
 
   const payload = await requestJson<unknown>(
     `/products/search?q=${encodeURIComponent(trimmed)}&limit=${encodeURIComponent(String(limit))}`,
+    {
+      signal: options?.signal,
+    },
   );
 
   return ProductsArraySchema.parse(payload);
@@ -147,6 +159,7 @@ export const getPriceHistory = async (productId: string): Promise<PriceAggregati
 // Compatibility exports used by existing screens/services.
 export const productApi = {
   fetchByBarcode: getProductByBarcode,
+  fetchById: getProductById,
   search: searchProducts,
   createManualProduct,
   updateProduct,

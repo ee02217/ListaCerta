@@ -14,6 +14,8 @@ export const theme = {
     success: '#16A34A',
     warning: '#D97706',
     warningSurface: '#FFF7ED',
+    destructive: '#FF3B30',
+    destructiveSurface: '#FFE8E6',
     tabInactive: '#94A3B8',
     surfaceMuted: '#F8FAFC',
     onPrimary: '#FFFFFF',

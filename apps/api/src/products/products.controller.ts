@@ -13,7 +13,7 @@ import {
 import { ProductsService } from './products.service';
 
 class CreateProductBodyDto {
-  barcode!: string;
+  barcode?: string | null;
   name!: string;
   brand?: string | null;
   category?: string | null;
@@ -23,7 +23,7 @@ class CreateProductBodyDto {
 }
 
 class UpdateProductBodyDto {
-  barcode?: string;
+  barcode?: string | null;
   name?: string;
   brand?: string | null;
   category?: string | null;

@@ -12,7 +12,7 @@ export const PriceStatusSchema = z.enum(['active', 'flagged']);
 
 export const ProductSchema = z.object({
   id: UuidSchema,
-  barcode: z.string().trim().min(4),
+  barcode: z.string().trim().min(1).nullable(),
   name: z.string().trim().min(1),
   brand: z.string().trim().min(1).nullable(),
   category: z.string().trim().min(1).nullable(),

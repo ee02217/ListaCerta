@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { EmptyState, LoadingState, ScreenContainer } from '../src/components';
 import { getDatabase } from '../src/db/client';
@@ -37,34 +38,51 @@ export default function RootLayout() {
     }
 
     let cancelled = false;
+    let isSyncing = false;
+    let lastStoreSyncAt = 0;
 
-    const triggerSync = async () => {
-      if (cancelled) {
+    const STORE_SYNC_COOLDOWN_MS = 5 * 60 * 1000;
+    const BACKGROUND_TICK_MS = 60 * 1000;
+
+    const triggerSync = async (reason: 'startup' | 'active' | 'interval') => {
+      if (cancelled || isSyncing) {
         return;
       }
 
-      try {
-        await syncStoresToLocal();
-      } catch {
-        // transient errors are expected when offline
-      }
+      isSyncing = true;
 
       try {
-        await syncPendingPriceSubmissions();
-      } catch {
-        // queue will retry later
+        const now = Date.now();
+        const shouldSyncStores = reason !== 'interval' || now - lastStoreSyncAt >= STORE_SYNC_COOLDOWN_MS;
+
+        if (shouldSyncStores) {
+          try {
+            await syncStoresToLocal();
+            lastStoreSyncAt = Date.now();
+          } catch {
+            // transient errors are expected when offline
+          }
+        }
+
+        try {
+          await syncPendingPriceSubmissions();
+        } catch {
+          // queue will retry later
+        }
+      } finally {
+        isSyncing = false;
       }
     };
 
-    void triggerSync();
+    void triggerSync('startup');
 
     const interval = setInterval(() => {
-      void triggerSync();
-    }, 15000);
+      void triggerSync('interval');
+    }, BACKGROUND_TICK_MS);
 
     const appStateSubscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        void triggerSync();
+        void triggerSync('active');
       }
     });
 
@@ -92,16 +110,24 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerTitleStyle: { fontWeight: '700', color: theme.colors.text },
-        headerTintColor: theme.colors.text,
-        headerShadowVisible: false,
-        headerStyle: { backgroundColor: theme.colors.background },
-        contentStyle: { backgroundColor: theme.colors.background },
-      }}
-    >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
+    <GestureHandlerRootView style={styles.root}>
+      <Stack
+        screenOptions={{
+          headerTitleStyle: { fontWeight: '700', color: theme.colors.text },
+          headerTintColor: theme.colors.text,
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: theme.colors.background },
+          contentStyle: { backgroundColor: theme.colors.background },
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

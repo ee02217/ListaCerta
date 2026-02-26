@@ -100,13 +100,31 @@ export class ProductsService {
   }
 
   async createManualProduct(body: CreateProductBody) {
+    const normalizedName = body.name.trim();
+    const normalizedBrand = body.brand?.trim() || null;
+
+    if (!body.barcode) {
+      const existing = await this.prisma.product.findFirst({
+        where: {
+          name: { equals: normalizedName, mode: 'insensitive' },
+          ...(normalizedBrand
+            ? { brand: { equals: normalizedBrand, mode: 'insensitive' } }
+            : { brand: null }),
+        },
+      });
+
+      if (existing) {
+        return ProductSchema.parse(existing);
+      }
+    }
+
     try {
       const product = await this.prisma.product.create({
         data: {
-          barcode: body.barcode,
-          name: body.name,
-          brand: body.brand ?? null,
-          category: body.category ?? null,
+          barcode: body.barcode ?? null,
+          name: normalizedName,
+          brand: normalizedBrand,
+          category: body.category?.trim() || null,
           imageUrl: body.imageUrl ?? null,
           source: body.source,
           isVerified: body.isVerified,
@@ -116,7 +134,11 @@ export class ProductsService {
       return ProductSchema.parse(product);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException(`Product with barcode ${body.barcode} already exists`);
+        if (body.barcode) {
+          throw new ConflictException(`Product with barcode ${body.barcode} already exists`);
+        }
+
+        throw new ConflictException('Product already exists');
       }
 
       throw error;

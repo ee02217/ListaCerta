@@ -200,7 +200,7 @@ export default function SearchScreen() {
                       {item.name}
                     </Text>
                     <Text style={styles.productMeta}>{item.brand ?? 'Unknown brand'}</Text>
-                    <Text style={styles.productMeta}>{item.barcode}</Text>
+                    <Text style={styles.productMeta}>{item.barcode ?? 'No barcode'}</Text>
                   </View>
 
                   <View style={styles.priceWrap}>

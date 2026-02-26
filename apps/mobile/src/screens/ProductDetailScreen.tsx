@@ -1,6 +1,18 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import type {
   PriceByStoreSummary,
@@ -28,7 +40,12 @@ const isUuid = (value: string) =>
 
 export default function ProductDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const pathname = usePathname();
+  const { id, addToList, focusNewList } = useLocalSearchParams<{
+    id: string;
+    addToList?: string;
+    focusNewList?: string;
+  }>();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [prices, setPrices] = useState<PriceWithStore[]>([]);
@@ -45,15 +62,33 @@ export default function ProductDetailScreen() {
   const [listQuantityDraft, setListQuantityDraft] = useState('1');
   const [newListNameDraft, setNewListNameDraft] = useState('');
 
+  const quantityInputRef = useRef<TextInput | null>(null);
+  const lastHandledAddToListTokenRef = useRef<string | null>(null);
+  const newListInputRef = useRef<TextInput | null>(null);
+
+  const dismissAddToListKeyboard = useCallback(() => {
+    quantityInputRef.current?.blur();
+    newListInputRef.current?.blur();
+    Keyboard.dismiss();
+  }, []);
+
   const productId = useMemo(() => id ?? '', [id]);
 
   const load = useCallback(async () => {
     if (!productId) return;
 
-    const [productData, priceData] = await Promise.all([
-      productRepository.getById(productId),
-      priceRepository.listByProductId(productId),
-    ]);
+    let productData = await productRepository.getById(productId);
+
+    if (!productData && isUuid(productId)) {
+      try {
+        const remoteProduct = await productApi.fetchById(productId);
+        productData = await productRepository.upsertFromApiProduct(remoteProduct);
+      } catch {
+        // keep local null state when not found remotely
+      }
+    }
+
+    const priceData = await priceRepository.listByProductId(productId);
 
     setProduct(productData);
     setPrices(priceData);
@@ -94,11 +129,18 @@ export default function ProductDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       void load();
+
+      return () => {
+        Keyboard.dismiss();
+        setIsAddToListModalVisible(false);
+      };
     }, [load]),
   );
 
   const saveProductMeta = async () => {
-    if (!productId || !nameDraft.trim() || !product?.barcode) return;
+    if (!productId || !product || !nameDraft.trim()) return;
+
+    const localBarcode = product.barcode?.trim() ?? '';
 
     setIsSaving(true);
 
@@ -113,14 +155,14 @@ export default function ProductDetailScreen() {
       } else {
         try {
           apiProduct = await productApi.createManualProduct({
-            barcode: product.barcode,
+            barcode: localBarcode || undefined,
             name: nameDraft.trim(),
             brand: brandDraft.trim() || null,
             source: 'manual',
           });
         } catch (error) {
-          if (error instanceof ApiHttpError && error.status === 409) {
-            apiProduct = await productApi.fetchByBarcode(product.barcode);
+          if (error instanceof ApiHttpError && error.status === 409 && localBarcode) {
+            apiProduct = await productApi.fetchByBarcode(localBarcode);
             if (isUuid(apiProduct.id)) {
               apiProduct = await productApi.updateProduct(apiProduct.id, {
                 name: nameDraft.trim(),
@@ -155,19 +197,67 @@ export default function ProductDetailScreen() {
     }
   };
 
+  const closeAddToListModal = () => {
+    dismissAddToListKeyboard();
+    setIsAddToListModalVisible(false);
+  };
+
+  useEffect(() => {
+    if (!pathname.includes('/products/')) {
+      dismissAddToListKeyboard();
+      setIsAddToListModalVisible(false);
+    }
+  }, [dismissAddToListKeyboard, pathname]);
+
   const openAddToListModal = async () => {
     await loadAvailableLists();
     setIsAddToListModalVisible(true);
   };
 
+  useEffect(() => {
+    if (!addToList || !product) {
+      return;
+    }
+
+    if (lastHandledAddToListTokenRef.current === addToList) {
+      return;
+    }
+
+    lastHandledAddToListTokenRef.current = addToList;
+    void openAddToListModal();
+  }, [addToList, product]);
+
+  useEffect(() => {
+    if (!isAddToListModalVisible || focusNewList !== '1') {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      newListInputRef.current?.focus();
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [focusNewList, isAddToListModalVisible]);
+
   const createListFromModal = async () => {
     const name = newListNameDraft.trim();
-    if (!name) return;
+    if (!name) {
+      Alert.alert('List name required', 'Please enter a list name before creating.');
+      return;
+    }
 
-    const created = await listRepository.createList(name);
-    setNewListNameDraft('');
-    await loadAvailableLists();
-    setSelectedListId(created.id);
+    dismissAddToListKeyboard();
+
+    try {
+      const created = await listRepository.createList(name);
+      setNewListNameDraft('');
+      await loadAvailableLists();
+      setSelectedListId(created.id);
+      closeAddToListModal();
+      Alert.alert('List created', `${created.name} is ready to use.`);
+    } catch (error) {
+      Alert.alert('Could not create list', error instanceof Error ? error.message : 'Unknown error');
+    }
   };
 
   const addProductToList = async () => {
@@ -176,13 +266,15 @@ export default function ProductDetailScreen() {
       return;
     }
 
+    dismissAddToListKeyboard();
+
     try {
       const parsed = Number(listQuantityDraft.replace(',', '.'));
       const quantity = Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : 1;
-      const title = product.name?.trim() || `Product ${product.barcode}`;
+      const title = product.name?.trim() || `Product ${product.barcode ?? product.id}`;
 
       await listRepository.addItem(selectedListId, title, quantity);
-      setIsAddToListModalVisible(false);
+      closeAddToListModal();
       setListQuantityDraft('1');
       Alert.alert('Added to list', `${title} was added to your shopping list.`);
     } catch (error) {
@@ -307,68 +399,87 @@ export default function ProductDetailScreen() {
         visible={isAddToListModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsAddToListModalVisible(false)}
+        onRequestClose={closeAddToListModal}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Add to shopping list</Text>
+        <KeyboardAvoidingView
+          style={styles.modalRoot}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={dismissAddToListKeyboard}>
+            <Pressable style={styles.modalCard} onPress={dismissAddToListKeyboard}>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                contentContainerStyle={styles.modalScrollContent}
+                style={styles.modalScroll}
+              >
+                <Text style={styles.modalTitle}>Add to shopping list</Text>
 
-            <Text style={styles.fieldLabel}>Select list</Text>
-            <View style={styles.listPicker}>
-              {availableLists.length === 0 ? (
-                <Text style={styles.emptyText}>No lists yet. Create one below.</Text>
-              ) : (
-                availableLists.map((list) => (
-                  <Pressable
-                    key={list.id}
-                    style={({ pressed }) => [
-                      styles.listOption,
-                      selectedListId === list.id && styles.listOptionSelected,
-                      pressed && styles.optionPressed,
-                    ]}
-                    onPress={() => setSelectedListId(list.id)}
-                  >
-                    <Text
-                      style={[
-                        styles.listOptionLabel,
-                        selectedListId === list.id && styles.listOptionLabelSelected,
-                      ]}
-                    >
-                      {list.name}
-                    </Text>
-                  </Pressable>
-                ))
-              )}
-            </View>
+                <Text style={styles.fieldLabel}>Select list</Text>
+                <View style={styles.listPicker}>
+                  {availableLists.length === 0 ? (
+                    <Text style={styles.emptyText}>No lists yet. Create one below.</Text>
+                  ) : (
+                    availableLists.map((list) => (
+                      <Pressable
+                        key={list.id}
+                        style={({ pressed }) => [
+                          styles.listOption,
+                          selectedListId === list.id && styles.listOptionSelected,
+                          pressed && styles.optionPressed,
+                        ]}
+                        onPress={() => {
+                          dismissAddToListKeyboard();
+                          setSelectedListId(list.id);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.listOptionLabel,
+                            selectedListId === list.id && styles.listOptionLabelSelected,
+                          ]}
+                        >
+                          {list.name}
+                        </Text>
+                      </Pressable>
+                    ))
+                  )}
+                </View>
 
-            <Text style={styles.fieldLabel}>Quantity</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="number-pad"
-              value={listQuantityDraft}
-              onChangeText={setListQuantityDraft}
-              placeholder="1"
-              placeholderTextColor={theme.colors.muted}
-            />
+                <Text style={styles.fieldLabel}>Quantity</Text>
+                <TextInput
+                  ref={quantityInputRef}
+                  style={styles.input}
+                  keyboardType="number-pad"
+                  value={listQuantityDraft}
+                  onChangeText={setListQuantityDraft}
+                  placeholder="1"
+                  placeholderTextColor={theme.colors.muted}
+                />
 
-            <Text style={styles.fieldLabel}>Create list (optional)</Text>
-            <View style={styles.inlineRow}>
-              <TextInput
-                style={[styles.input, styles.flexInput]}
-                value={newListNameDraft}
-                onChangeText={setNewListNameDraft}
-                placeholder="e.g. Weekly groceries"
-                placeholderTextColor={theme.colors.muted}
-              />
-              <SecondaryButton label="Create" onPress={() => void createListFromModal()} />
-            </View>
+                <Text style={styles.fieldLabel}>Create list (optional)</Text>
+                <View style={styles.inlineRow}>
+                  <TextInput
+                    ref={newListInputRef}
+                    style={[styles.input, styles.flexInput, styles.focusInput]}
+                    value={newListNameDraft}
+                    onChangeText={setNewListNameDraft}
+                    placeholder="e.g. Weekly groceries"
+                    placeholderTextColor={theme.colors.muted}
+                    returnKeyType="done"
+                    onSubmitEditing={() => void createListFromModal()}
+                  />
+                  <SecondaryButton label="Create" onPress={() => void createListFromModal()} />
+                </View>
 
-            <View style={styles.modalActions}>
-              <SecondaryButton label="Cancel" onPress={() => setIsAddToListModalVisible(false)} />
-              <PrimaryButton label="Add" onPress={() => void addProductToList()} />
-            </View>
-          </View>
-        </View>
+                <View style={styles.modalActions}>
+                  <SecondaryButton label="Cancel" onPress={closeAddToListModal} />
+                  <PrimaryButton label="Add" onPress={() => void addProductToList()} />
+                </View>
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -438,6 +549,9 @@ const styles = StyleSheet.create({
   emptyText: {
     ...theme.typography.bodyMuted,
   },
+  modalRoot: {
+    flex: 1,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: theme.colors.modalOverlay,
@@ -445,11 +559,17 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
   },
   modalCard: {
+    maxHeight: '84%',
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.xl,
     padding: theme.spacing.lg,
-    gap: theme.spacing.sm,
     ...theme.shadows.card,
+  },
+  modalScroll: {
+    zIndex: 2,
+  },
+  modalScrollContent: {
+    gap: theme.spacing.sm,
   },
   modalTitle: {
     ...theme.typography.heading,
@@ -487,6 +607,10 @@ const styles = StyleSheet.create({
   },
   flexInput: {
     flex: 1,
+  },
+  focusInput: {
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary,
   },
   modalActions: {
     flexDirection: 'row',

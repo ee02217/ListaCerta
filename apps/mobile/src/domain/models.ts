@@ -21,9 +21,11 @@ export type ListItem = {
 
 export type Product = {
   id: string;
-  barcode: string;
+  barcode: string | null;
   name: string;
   brand?: string | null;
+  category?: string | null;
+  imageUrl?: string | null;
   updatedAt: string;
 };
 

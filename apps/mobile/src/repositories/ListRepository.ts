@@ -137,6 +137,12 @@ export const listRepository = {
     await db.runAsync('UPDATE list_items SET quantity = ? WHERE id = ?;', [safeQuantity, itemId]);
   },
 
+  async deleteItem(itemId: string): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync('DELETE FROM list_items WHERE id = ?;', [itemId]);
+    console.info(`[db] DELETE FROM list_items WHERE id = ?; [${itemId}]`);
+  },
+
   async updateListName(listId: string, name: string): Promise<void> {
     const normalizedName = name.trim();
 

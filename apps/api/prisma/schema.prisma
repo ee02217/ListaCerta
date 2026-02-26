@@ -19,7 +19,7 @@ enum PriceStatus {
 
 model Product {
   id         String        @id @default(uuid())
-  barcode    String        @unique
+  barcode    String?       @unique
   name       String
   brand      String?
   category   String?

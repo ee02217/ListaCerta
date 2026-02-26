@@ -30,6 +30,12 @@ type PendingPriceSubmissionRow = {
   last_error: string | null;
 };
 
+type BestKnownPriceRow = {
+  product_id: string;
+  best_price_cents: number;
+  currency: string;
+};
+
 export type PendingPriceSubmission = {
   idempotencyKey: string;
   productId: string;
@@ -255,5 +261,38 @@ export const priceRepository = {
         1,
       ],
     );
+  },
+
+  async getBestKnownPriceByProductIds(productIds: string[]): Promise<Record<string, { priceCents: number; currency: string }>> {
+    if (productIds.length === 0) {
+      return {};
+    }
+
+    const db = await getDatabase();
+    const placeholders = productIds.map(() => '?').join(', ');
+
+    const rows = await db.getAllAsync<BestKnownPriceRow>(
+      `SELECT p1.product_id,
+              p1.amount_cents as best_price_cents,
+              p1.currency
+         FROM prices p1
+        WHERE p1.status = 'active'
+          AND p1.product_id IN (${placeholders})
+          AND p1.amount_cents = (
+            SELECT MIN(p2.amount_cents)
+              FROM prices p2
+             WHERE p2.product_id = p1.product_id
+               AND p2.status = 'active'
+          );`,
+      productIds,
+    );
+
+    return rows.reduce<Record<string, { priceCents: number; currency: string }>>((acc, row) => {
+      acc[row.product_id] = {
+        priceCents: row.best_price_cents,
+        currency: row.currency,
+      };
+      return acc;
+    }, {});
   },
 };

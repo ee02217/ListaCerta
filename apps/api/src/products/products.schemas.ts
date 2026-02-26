@@ -15,7 +15,7 @@ export const searchProductsQuerySchema = z.object({
 });
 
 export const createProductSchema = z.object({
-  barcode: barcodeSchema,
+  barcode: barcodeSchema.nullable().optional(),
   name: z.string().trim().min(1),
   brand: z.string().trim().min(1).nullable().optional(),
   category: z.string().trim().min(1).nullable().optional(),
@@ -26,7 +26,7 @@ export const createProductSchema = z.object({
 
 export const updateProductSchema = z
   .object({
-    barcode: barcodeSchema.optional(),
+    barcode: barcodeSchema.nullable().optional(),
     name: z.string().trim().min(1).optional(),
     brand: z.string().trim().min(1).nullable().optional(),
     category: z.string().trim().min(1).nullable().optional(),

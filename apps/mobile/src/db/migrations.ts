@@ -89,6 +89,26 @@ const MIGRATIONS: Migration[] = [
       'ALTER TABLE pending_price_submissions ADD COLUMN submitted_by TEXT;',
     ],
   },
+  {
+    version: 5,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS products_v2 (
+        id TEXT PRIMARY KEY NOT NULL,
+        barcode TEXT UNIQUE,
+        name TEXT NOT NULL,
+        brand TEXT,
+        category TEXT,
+        image_url TEXT,
+        updated_at TEXT NOT NULL
+      );`,
+      `INSERT INTO products_v2 (id, barcode, name, brand, category, image_url, updated_at)
+       SELECT id, barcode, name, brand, NULL, NULL, updated_at FROM products;`,
+      'DROP TABLE products;',
+      'ALTER TABLE products_v2 RENAME TO products;',
+      'CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);',
+      'CREATE INDEX IF NOT EXISTS idx_products_name_brand ON products(name, brand);',
+    ],
+  },
 ];
 
 export const runMigrations = async (db: SQLiteDatabase): Promise<void> => {

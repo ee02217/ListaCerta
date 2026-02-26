@@ -5,14 +5,16 @@ import { theme } from '../theme';
 
 type CardProps = PropsWithChildren<{
   onPress?: () => void;
+  onLongPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }>;
 
-export function Card({ children, onPress, style }: CardProps) {
-  if (onPress) {
+export function Card({ children, onPress, onLongPress, style }: CardProps) {
+  if (onPress || onLongPress) {
     return (
       <Pressable
         onPress={onPress}
+        onLongPress={onLongPress}
         style={({ pressed }) => [styles.base, pressed && styles.pressed, style]}
       >
         {children}

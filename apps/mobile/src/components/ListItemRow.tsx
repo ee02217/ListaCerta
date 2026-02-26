@@ -8,12 +8,13 @@ type ListItemRowProps = {
   title: string;
   subtitle?: string;
   onPress?: () => void;
+  onLongPress?: () => void;
   trailing?: ReactNode;
 };
 
-export function ListItemRow({ title, subtitle, trailing, onPress }: ListItemRowProps) {
+export function ListItemRow({ title, subtitle, trailing, onPress, onLongPress }: ListItemRowProps) {
   return (
-    <Card onPress={onPress} style={styles.card}>
+    <Card onPress={onPress} onLongPress={onLongPress} style={styles.card}>
       <View style={styles.row}>
         <View style={styles.textGroup}>
           <Text style={styles.title}>{title}</Text>
